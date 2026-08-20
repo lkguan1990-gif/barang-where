@@ -1,8 +1,8 @@
 // ============================================================
-// Barang Where — configuration
+// Barang Where - configuration
 // Fill these in with your own Supabase project's values.
-// Find them in: Supabase Dashboard → Project Settings → API
-// The anon/public key is safe to expose in client-side code —
+// Find them in: Supabase Dashboard -> Project Settings -> API
+// The anon/public key is safe to expose in client-side code -
 // it's designed for this. Access control is enforced by the
 // Row Level Security policies in supabase/schema.sql, not by
 // keeping this key secret.
