@@ -1,0 +1,11 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Never commit real credentials if you ever move config.js values
+# into a separate untracked file in the future
+.env
+.env.local

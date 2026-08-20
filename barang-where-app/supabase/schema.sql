@@ -1,0 +1,186 @@
+-- ============================================================
+-- Barang Where — Supabase schema
+-- Run this once in your Supabase project's SQL Editor
+-- (Dashboard → SQL Editor → New query → paste all of this → Run)
+-- ============================================================
+
+-- Needed for gen_random_uuid()
+create extension if not exists pgcrypto;
+
+-- ------------------------------------------------------------
+-- GARAGES (one per user — their public seller profile)
+-- ------------------------------------------------------------
+create table public.garages (
+  id                  uuid primary key references auth.users(id) on delete cascade,
+  display_name        text not null,
+  block                text not null,
+  town                 text not null default 'Sengkang',
+  lat                  double precision,   -- rounded to ~100m before saving, see app.js
+  lng                  double precision,
+  tagline              text default '',
+  is_pro               boolean not null default false,
+  pro_expires_at       timestamptz,
+  free_boost_credits   integer not null default 0,
+  rating               numeric not null default 5.0,
+  created_at           timestamptz not null default now()
+);
+
+alter table public.garages enable row level security;
+
+create policy "Garages are publicly viewable"
+  on public.garages for select
+  using (true);
+
+create policy "Users can create their own garage"
+  on public.garages for insert
+  with check (auth.uid() = id);
+
+create policy "Users can update their own garage"
+  on public.garages for update
+  using (auth.uid() = id);
+
+-- ------------------------------------------------------------
+-- ITEMS (listings)
+-- ------------------------------------------------------------
+create table public.items (
+  id                 uuid primary key default gen_random_uuid(),
+  garage_id          uuid not null references public.garages(id) on delete cascade,
+  title              text not null,
+  price              numeric not null check (price >= 0),
+  category           text not null,
+  condition          text not null,
+  description        text default '',
+  photos             text[] not null default '{}',   -- public URLs in the item-photos bucket
+  status             text not null default 'Available' check (status in ('Available','Reserved','Sold')),
+  boosted            boolean not null default false,
+  boost_expires_at   timestamptz,
+  created_at         timestamptz not null default now()
+);
+
+alter table public.items enable row level security;
+
+create policy "Items are publicly viewable"
+  on public.items for select
+  using (true);
+
+create policy "Owners can insert their own items"
+  on public.items for insert
+  with check (auth.uid() = garage_id);
+
+create policy "Owners can update their own items"
+  on public.items for update
+  using (auth.uid() = garage_id);
+
+create policy "Owners can delete their own items"
+  on public.items for delete
+  using (auth.uid() = garage_id);
+
+-- ------------------------------------------------------------
+-- SAVED ITEMS (favorites)
+-- ------------------------------------------------------------
+create table public.saved_items (
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  item_id     uuid not null references public.items(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, item_id)
+);
+
+alter table public.saved_items enable row level security;
+
+create policy "Users manage their own saved items"
+  on public.saved_items for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ------------------------------------------------------------
+-- CONVERSATIONS (one per buyer+item pair)
+-- ------------------------------------------------------------
+create table public.conversations (
+  id          uuid primary key default gen_random_uuid(),
+  item_id     uuid not null references public.items(id) on delete cascade,
+  buyer_id    uuid not null references public.garages(id) on delete cascade,
+  seller_id   uuid not null references public.garages(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  unique (item_id, buyer_id)
+);
+
+alter table public.conversations enable row level security;
+
+create policy "Participants can view their conversations"
+  on public.conversations for select
+  using (auth.uid() = buyer_id or auth.uid() = seller_id);
+
+create policy "Buyers can start a conversation"
+  on public.conversations for insert
+  with check (auth.uid() = buyer_id);
+
+-- ------------------------------------------------------------
+-- MESSAGES
+-- ------------------------------------------------------------
+create table public.messages (
+  id                uuid primary key default gen_random_uuid(),
+  conversation_id   uuid not null references public.conversations(id) on delete cascade,
+  sender_id         uuid not null references auth.users(id) on delete cascade,
+  body              text not null,
+  created_at        timestamptz not null default now()
+);
+
+alter table public.messages enable row level security;
+
+create policy "Participants can view messages in their conversations"
+  on public.messages for select
+  using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id
+        and (c.buyer_id = auth.uid() or c.seller_id = auth.uid())
+    )
+  );
+
+create policy "Participants can send messages in their conversations"
+  on public.messages for insert
+  with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id
+        and (c.buyer_id = auth.uid() or c.seller_id = auth.uid())
+    )
+  );
+
+-- ------------------------------------------------------------
+-- REALTIME — let the client subscribe to live message inserts
+-- ------------------------------------------------------------
+alter publication supabase_realtime add table public.messages;
+
+-- ------------------------------------------------------------
+-- STORAGE — bucket for item photos
+-- Photos are public-read (so buyers can view them without logging in
+-- to see previews) but only the uploading user can write to their own
+-- folder, named after their user id.
+-- ------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('item-photos', 'item-photos', true)
+on conflict (id) do nothing;
+
+create policy "Public read of item photos"
+  on storage.objects for select
+  using (bucket_id = 'item-photos');
+
+create policy "Users upload photos into their own folder"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'item-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Users delete their own photos"
+  on storage.objects for delete
+  using (
+    bucket_id = 'item-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- ------------------------------------------------------------
+-- Done. Next steps are in README.md.
+-- ------------------------------------------------------------

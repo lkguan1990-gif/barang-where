@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barang Where — Nearby Garage Sales</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ============ LOADING ============ -->
+  <div class="center-loader" id="bootLoader">📡 Loading Barang Where…</div>
+
+  <!-- ============ AUTH ============ -->
+  <div class="auth-wrap" id="screen-auth" style="display:none;">
+    <div class="auth-card">
+      <div class="glyph">🏘️</div>
+      <h1>BARANG WHERE</h1>
+      <p>Your block's garage sale, online. Enter your email — we'll send you a magic link, no password needed.</p>
+      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email">
+      <button class="btn block red" onclick="sendMagicLink()">Send me a magic link</button>
+      <div class="auth-msg" id="authMsg"></div>
+    </div>
+  </div>
+
+  <!-- ============ ONBOARDING ============ -->
+  <div class="auth-wrap" id="screen-onboarding" style="display:none;">
+    <div class="auth-card" style="text-align:left;">
+      <div class="glyph" style="text-align:center;">👋</div>
+      <h1 style="text-align:center;">SET UP YOUR GARAGE</h1>
+      <p style="text-align:center;">Just the basics — you can add items after this.</p>
+      <div class="field">
+        <label>Your name (shown to neighbours)</label>
+        <input type="text" id="obName" placeholder="e.g. Wei Jie">
+      </div>
+      <div class="field">
+        <label>Block number</label>
+        <input type="text" id="obBlock" placeholder="e.g. 302">
+      </div>
+      <div class="field">
+        <label>Town / estate</label>
+        <input type="text" id="obTown" placeholder="e.g. Sengkang">
+      </div>
+      <div class="field-hint" id="obLocStatus">We'll ask your browser for your location next, so neighbours can be sorted by distance. We only ever show your block — never your exact address.</div>
+      <button class="btn block red" style="margin-top:16px;" onclick="finishOnboarding()">Set up my garage</button>
+      <div class="auth-msg" id="obMsg"></div>
+    </div>
+  </div>
+
+  <!-- ============ MAIN APP (mirrors the mockup's screens) ============ -->
+  <div id="mainApp" style="display:none;">
+
+    <div class="topbar" id="topbar">
+      <div>
+        <div class="brand"><span class="dot"></span>BARANG WHERE</div>
+        <div class="sub" id="topbarSub">📍 Locating…</div>
+      </div>
+      <div class="iconbtn" onclick="show('chats')" title="Messages">💬</div>
+    </div>
+
+    <!-- NEARBY -->
+    <div class="screen active" id="screen-nearby">
+      <div id="nearbyContent">
+        <div class="estate-banner">
+          <div class="where">You're near <b id="estateName">—</b></div>
+          <div class="iconbtn" style="width:30px;height:30px;font-size:12px;" onclick="loadNearby()">↻</div>
+        </div>
+        <div class="searchbar"><input type="text" id="searchInput" placeholder="Search items or garages…" oninput="renderGarageList()"></div>
+        <div class="chips" id="categoryChips"></div>
+        <div class="pole-divider"><span id="resultsCount">Loading…</span></div>
+        <div class="garage-list" id="garageList"></div>
+      </div>
+    </div>
+
+    <!-- GARAGE PAGE -->
+    <div class="screen" id="screen-garage">
+      <div class="thread-header"><span class="back" onclick="show('nearby')">←</span><span style="font-weight:700; font-size:13px;">GARAGE</span></div>
+      <div class="garage-header" id="garageHeaderBox"></div>
+      <div class="item-grid" id="garageItemGrid"></div>
+    </div>
+
+    <!-- ITEM DETAIL -->
+    <div class="screen" id="screen-item">
+      <div class="thread-header"><span class="back" onclick="show('nearby')">←</span><span style="font-weight:700; font-size:13px;">ITEM</span></div>
+      <div id="itemDetailBox"></div>
+    </div>
+
+    <!-- CHATS LIST -->
+    <div class="screen" id="screen-chats">
+      <div class="pole-divider" style="margin-top:2px;"><span>Your messages</span></div>
+      <div class="convo-list" id="convoList"></div>
+    </div>
+
+    <!-- CHAT THREAD -->
+    <div class="screen" id="screen-thread">
+      <div class="thread-header"><span class="back" onclick="show('chats')">←</span><span style="font-weight:700; font-size:13px;" id="threadWho">CHAT</span></div>
+      <div class="thread-item-strip" id="threadItemStrip"></div>
+      <div class="messages" id="threadMessages"></div>
+      <div class="composer">
+        <input type="text" id="composerInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendMsg()">
+        <button onclick="sendMsg()">➤</button>
+      </div>
+    </div>
+
+    <!-- MY GARAGE -->
+    <div class="screen" id="screen-mygarage">
+      <div class="my-header">
+        <div class="block-tile sz-hero" id="myBlockTile" style="background:var(--hdb-red);"></div>
+        <div class="who">
+          <div class="name">Your Garage <span id="proBadgeSlot"></span></div>
+          <div class="addr" id="myAddrLine">—</div>
+        </div>
+      </div>
+      <div class="stat-strip">
+        <div class="stat-box"><div class="n" id="myItemCount">0</div><div class="l">Listed</div></div>
+        <div class="stat-box"><div class="n" id="mySoldCount">0</div><div class="l">Sold</div></div>
+        <div class="stat-box"><div class="n" id="myRating">5.0</div><div class="l">Rating</div></div>
+      </div>
+      <div id="proBannerSlot"></div>
+      <div class="pole-divider"><span>Your listings</span></div>
+      <button class="btn block" id="addItemBtn" onclick="show('additem')">＋ List a new item</button>
+      <div id="myItemsList" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- ADD ITEM -->
+    <div class="screen" id="screen-additem">
+      <div class="thread-header"><span class="back" onclick="show('mygarage')">←</span><span style="font-weight:700; font-size:13px;">LIST AN ITEM</span></div>
+      <div class="field">
+        <label>Photos <span style="text-transform:none; font-weight:500;">— a real photo helps buyers judge condition</span></label>
+        <div class="photo-upload-row" id="photoUploadRow"></div>
+        <input type="file" id="photoFileInput" accept="image/*" style="display:none;" onchange="handlePhotoFile(this)">
+        <div class="field-hint" id="photoHint"></div>
+      </div>
+      <div class="field"><label>Title</label><input type="text" id="fTitle" placeholder="e.g. Rattan bookshelf, 3-tier"></div>
+      <div class="field"><label>Category</label><select id="fCategory"></select></div>
+      <div class="field"><label>Price (SGD)</label><input type="number" id="fPrice" placeholder="e.g. 25" min="0"></div>
+      <div class="field">
+        <label>Condition</label>
+        <select id="fCondition"><option>New</option><option selected>Like new</option><option>Good</option><option>Fair</option></select>
+      </div>
+      <div class="field"><label>Description</label><textarea id="fDesc" placeholder="Tell your neighbours a bit more."></textarea></div>
+      <button class="btn block red" style="margin-top:20px;" onclick="submitItem()">Publish to my garage</button>
+      <div class="auth-msg" id="itemFormMsg"></div>
+    </div>
+
+    <!-- BOOST -->
+    <div class="screen" id="screen-boost">
+      <div class="thread-header"><span class="back" onclick="show('mygarage')">←</span><span style="font-weight:700; font-size:13px;">BOOST LISTING</span></div>
+      <div class="thread-item-strip" id="boostItemStrip" style="margin-top:14px;"></div>
+      <div class="pole-divider" style="margin-top:20px;"><span>Choose a boost</span></div>
+      <div id="boostOptions"></div>
+      <div class="paynow-row">
+        <div class="icon">🇸🇬</div>
+        <div><div class="t">Payment integration needed</div><div class="s">This demo writes the boost directly to your database — wire up Stripe/PayNow before charging real money.</div></div>
+      </div>
+      <button class="btn block red" style="margin-top:18px;" onclick="confirmBoost()">Confirm boost — <span id="boostConfirmPrice">$1.50</span></button>
+    </div>
+
+    <!-- PRO -->
+    <div class="screen" id="screen-pro">
+      <div class="thread-header"><span class="back" onclick="show('mygarage')">←</span><span style="font-weight:700; font-size:13px;">PRO GARAGE</span></div>
+      <div class="pro-banner" style="margin-top:14px; cursor:default;">
+        <div class="kicker">For neighbours who sell often</div>
+        <h3>Pro Garage</h3>
+        <p>Listing is always free and unlimited — Pro adds extras. $2.90/mo.</p>
+      </div>
+      <ul class="feature-list">
+        <li><span class="tick">✓</span><div><b>3 photos per item</b></div></li>
+        <li><span class="tick">✓</span><div><b>Custom garage tagline</b></div></li>
+        <li><span class="tick">✓</span><div><b>Pro badge on your garage</b></div></li>
+        <li><span class="tick">✓</span><div><b>3 free boost credits / month</b></div></li>
+      </ul>
+      <div class="paynow-row">
+        <div class="icon">🇸🇬</div>
+        <div><div class="t">Payment integration needed</div><div class="s">This demo writes Pro status directly to your database — wire up Stripe/PayNow before charging real money.</div></div>
+      </div>
+      <button class="btn block red" style="margin-top:18px;" onclick="confirmPro()">Start Pro Garage — $2.90/mo</button>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="screen" id="screen-profile">
+      <div class="profile-hero">
+        <div class="block-tile sz-hero" id="profileBlockTile" style="background:var(--zinc-blue);"></div>
+        <div class="name" id="profileName">You</div>
+        <div class="addr" id="profileAddr">—</div>
+      </div>
+      <div class="profile-list">
+        <div class="profile-row"><span>My Garage</span><span class="r" onclick="show('mygarage')" style="cursor:pointer;">Manage →</span></div>
+        <div class="profile-row"><span>Saved items</span><span class="r" id="savedCountRow">0 saved</span></div>
+        <div class="profile-row"><span>Sign out</span><span class="r" style="cursor:pointer; color:var(--hdb-red); font-weight:700;" onclick="signOut()">Sign out</span></div>
+      </div>
+    </div>
+
+    <div class="bottomnav">
+      <button class="navbtn active" data-nav="nearby" onclick="show('nearby')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>Nearby
+      </button>
+      <button class="navbtn" data-nav="mygarage" onclick="show('mygarage')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>My Garage
+      </button>
+      <button class="navbtn" data-nav="chats" onclick="show('chats')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-9 8 8.5 8.5 0 01-4-1L3 20l1.5-4A8.38 8.38 0 013 11.5 8.5 8.5 0 0111 3h.5a8.38 8.38 0 019.5 8.5z"/></svg>Chats
+      </button>
+      <button class="navbtn" data-nav="profile" onclick="show('profile')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Profile
+      </button>
+    </div>
+  </div>
+
+  <div id="toastHost"></div>
+</div>
+
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
