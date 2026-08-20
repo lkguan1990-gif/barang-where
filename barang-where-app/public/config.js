@@ -8,8 +8,9 @@
 // keeping this key secret.
 // ============================================================
 window.NDL_CONFIG = {
-  SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR-ANON-PUBLIC-KEY",
+  SUPABASE_URL: "https://lbgcefqtnkjsifpuizvw.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxiZ2NlZnF0bmtqc2lmcHVpenZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNTA3MzUsImV4cCI6MjEwMjcyNjczNX0.mhMg1UfXzrqb7WNPAVK8DoIL7FbCg_5gcga-rtH4oBc
+",
 
   // Shown in onboarding / used as the default town label.
   DEFAULT_TOWN: "Sengkang"
