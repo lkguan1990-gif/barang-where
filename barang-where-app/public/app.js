@@ -232,6 +232,7 @@ window.loadNearby = async function(){
 
   nearbyGarages = (data || []).map(g => ({
     ...g,
+    items: (g.items || []).filter(it => !it.deleted_at),
     distance: haversineMeters(myGarage.lat, myGarage.lng, g.lat, g.lng)
   }));
   document.getElementById('estateName').textContent = myGarage.town || '—';
@@ -490,7 +491,7 @@ async function openThread(convoId){
     .from('conversations')
     .select(`
       id, item_id, buyer_id, seller_id,
-      item:items(id,title,price,photos,category),
+      item:items(id,title,price,photos,category,deleted_at),
       buyer:garages!conversations_buyer_id_fkey(id,display_name,block),
       seller:garages!conversations_seller_id_fkey(id,display_name,block)
     `)
@@ -504,7 +505,7 @@ async function openThread(convoId){
   document.getElementById('threadWho').textContent = (otherParty?.display_name || 'Chat').toUpperCase();
   document.getElementById('threadItemStrip').innerHTML = `
     <div class="ph">${mediaFill(convo.item)}</div>
-    <div><div class="t">${esc(convo.item.title)}</div><div class="p">$${convo.item.price}</div></div>`;
+    <div><div class="t">${esc(convo.item.title)}</div><div class="p">${convo.item.deleted_at ? '<span style="color:var(--ink-soft); font-weight:600;">Listing removed</span>' : '$'+convo.item.price}</div></div>`;
 
   await loadMessages(convoId);
   subscribeToThread(convoId);
@@ -551,7 +552,7 @@ window.renderChats = async function(){
     .from('conversations')
     .select(`
       id, buyer_id, seller_id,
-      item:items(id,title,price,photos),
+      item:items(id,title,price,photos,deleted_at),
       buyer:garages!conversations_buyer_id_fkey(id,display_name),
       seller:garages!conversations_seller_id_fkey(id,display_name),
       messages(body, created_at, sender_id)
@@ -574,7 +575,7 @@ window.renderChats = async function(){
       <div class="convo-thumb">${mediaFill(c.item)}</div>
       <div class="convo-info">
         <div class="convo-name">${esc(otherParty?.display_name || 'Neighbour')}</div>
-        <div class="convo-item">${esc(c.item.title)} · $${c.item.price}</div>
+        <div class="convo-item">${esc(c.item.title)} · ${c.item.deleted_at ? 'Listing removed' : '$'+c.item.price}</div>
         <div class="convo-last">${last ? (last.sender_id===session.user.id?'You: ':'') + esc(last.body) : 'Say hi 👋'}</div>
       </div>
       ${isUnread ? '<div class="unread-dot"></div>' : ''}
@@ -588,7 +589,7 @@ window.openThread = openThread;
    MY GARAGE
 ========================================================= */
 async function loadMyItems(){
-  const { data, error } = await supabase.from('items').select('*').eq('garage_id', session.user.id).order('created_at', {ascending:false});
+  const { data, error } = await supabase.from('items').select('*').eq('garage_id', session.user.id).is('deleted_at', null).order('created_at', {ascending:false});
   if (error) { console.error(error); return; }
   myItems = data || [];
 }
@@ -651,10 +652,33 @@ window.setStatus = async function(itemId, status){
   renderMyGarage();
 };
 window.deleteItem = async function(itemId){
-  if (!confirm('Remove this listing? This cannot be undone.')) return;
-  await supabase.from('items').delete().eq('id', itemId);
+  if (!confirm("Remove this listing? It'll disappear from Nearby and your garage, but any chats about it will stay in your Chats list.")) return;
+
+  const it = myItems.find(i=>i.id===itemId);
+
+  // Delete the actual photo files from storage to reclaim space —
+  // extract each file's storage path out of its public URL.
+  if (it && it.photos && it.photos.length) {
+    const marker = '/item-photos/';
+    const paths = it.photos
+      .map(url => { const i = url.indexOf(marker); return i === -1 ? null : url.slice(i + marker.length); })
+      .filter(Boolean);
+    if (paths.length) {
+      const { error: storageErr } = await supabase.storage.from('item-photos').remove(paths);
+      if (storageErr) console.error('Could not delete photo files:', storageErr);
+      // Don't block the listing removal just because storage cleanup failed —
+      // worst case is a harmless orphaned file, not a broken listing.
+    }
+  }
+
+  // Soft-delete: keep the row (so old chats referencing it still work),
+  // just mark it removed and clear the (now-deleted) photo URLs.
+  const { error } = await supabase.from('items').update({ deleted_at: new Date().toISOString(), photos: [] }).eq('id', itemId);
+  if (error) { toast('Failed to remove listing.'); console.error(error); return; }
+
   myItems = myItems.filter(i=>i.id!==itemId);
   renderMyGarage();
+  toast('Listing removed.');
 };
 
 /* =========================================================
@@ -832,14 +856,14 @@ window.renderLiked = async function(){
     .from('saved_items')
     .select(`
       item_id, created_at,
-      item:items(id,title,price,photos,category,condition,status,boosted,garage_id)
+      item:items(id,title,price,photos,category,condition,status,boosted,garage_id,deleted_at)
     `)
     .eq('user_id', session.user.id)
     .order('created_at', {ascending:false});
 
   if (error) { box.innerHTML = `<div class="empty" style="grid-column:1/-1;"><p>Could not load liked items.</p></div>`; console.error(error); return; }
 
-  const liked = (data || []).filter(row => row.item); // skip rows whose item was deleted
+  const liked = (data || []).filter(row => row.item && !row.item.deleted_at); // skip deleted or hard-removed items
   if (liked.length === 0){
     box.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="glyph">♡</div><p>Nothing liked yet.<br>Tap the heart on any item to save it here.</p></div>`;
     return;

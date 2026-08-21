@@ -55,6 +55,7 @@ create table public.items (
   status             text not null default 'Available' check (status in ('Available','Reserved','Sold')),
   boosted            boolean not null default false,
   boost_expires_at   timestamptz,
+  deleted_at         timestamptz,   -- soft-delete: set instead of removing the row, so old chats survive
   created_at         timestamptz not null default now()
 );
 
