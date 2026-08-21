@@ -203,6 +203,7 @@ window.show = function(screen){
   if (screen==='nearby') loadNearby();
   if (screen==='mygarage') renderMyGarage();
   if (screen==='additem') renderAddItemForm();
+  if (screen==='pro') renderProScreen();
   if (screen==='chats') renderChats();
   if (screen==='profile') renderProfile();
   if (screen==='liked') { setLikedTab('items'); renderLiked(); }
@@ -453,12 +454,21 @@ window.openItem = function(itemId, garageId){
   const isMine = garageId==='mine';
   const c = colorFor(g.id);
   const saved = savedItemIds.has(itemId);
-  const hasPhotos = item.photos && item.photos.length > 0;
+  const ownerIsPro = !!g.is_pro;
+  const allPhotos = item.photos || [];
+  const lockedCount = (!ownerIsPro && allPhotos.length > 1) ? allPhotos.length - 1 : 0;
+  const visiblePhotos = lockedCount > 0 ? allPhotos.slice(0,1) : allPhotos;
+  const hasPhotos = visiblePhotos.length > 0;
   const mainMedia = hasPhotos
-    ? `<img id="detailMainImg" src="${item.photos[0]}" style="width:100%;height:100%;object-fit:contain;display:block;cursor:zoom-in;" onclick="openLightbox(this.src, event)">`
+    ? `<img id="detailMainImg" src="${visiblePhotos[0]}" style="width:100%;height:100%;object-fit:contain;display:block;cursor:zoom-in;" onclick="openLightbox(this.src, event)">`
     : mediaFill(item);
-  const dots = (hasPhotos && item.photos.length > 1)
-    ? `<div class="photo-dots">${item.photos.map((_,i)=>`<div class="photo-dot ${i===0?'active':''}" onclick="setDetailPhoto(${i},event)"></div>`).join('')}</div>` : '';
+  const dots = (hasPhotos && visiblePhotos.length > 1)
+    ? `<div class="photo-dots">${visiblePhotos.map((_,i)=>`<div class="photo-dot ${i===0?'active':''}" onclick="setDetailPhoto(${i},event)"></div>`).join('')}</div>` : '';
+  const lockHint = lockedCount > 0
+    ? `<div class="field-hint" style="margin-top:8px;">🔒 ${isMine
+        ? `${lockedCount} more photo${lockedCount===1?'':'s'} hidden — <span style="color:var(--zinc-blue); font-weight:700; cursor:pointer;" onclick="show('pro')">go Pro</span> to show them again.`
+        : `This seller has ${lockedCount} more photo${lockedCount===1?'':'s'} hidden until they're on Pro Garage again.`}</div>`
+    : '';
 
   document.getElementById('itemDetailBox').innerHTML = `
     <div class="item-detail-photo" style="background:${c}22;">
@@ -466,6 +476,7 @@ window.openItem = function(itemId, garageId){
       ${isMine ? '' : `<div class="save-btn ${saved?'saved':''}" onclick="toggleSave('${itemId}', event)">${saved?'♥':'♡'}</div>`}
       ${dots}
     </div>
+    ${lockHint}
     <div class="idet-title">${esc(item.title)}</div>
     <div class="idet-price">$${Number(item.price).toFixed(2)}</div>
     <div class="idet-badges">
@@ -691,7 +702,8 @@ window.renderMyGarage = function(){
     </div>
     <div class="field" style="margin-top:14px;">
       <label>Garage tagline <span style="text-transform:none; font-weight:500;">— shown on your garage page</span></label>
-      <input type="text" id="taglineInput" maxlength="80" value="${esc(myGarage.tagline||'')}" onblur="saveTagline(this.value)">
+      <input type="text" id="taglineInput" maxlength="80" value="${esc(myGarage.tagline||'')}">
+      <button class="btn small" style="margin-top:8px;" onclick="saveTagline()">Save tagline</button>
     </div>` : `
     <div class="pro-banner" onclick="show('pro')">
       <div class="top"><div class="kicker">Sell more, often?</div><div style="font-size:18px;">→</div></div>
@@ -725,9 +737,12 @@ window.renderMyGarage = function(){
         </div>
       </div>`).join('');
 };
-window.saveTagline = async function(value){
+window.saveTagline = async function(){
+  const value = document.getElementById('taglineInput').value.trim();
+  const { error } = await supabase.from('garages').update({tagline: value}).eq('id', session.user.id);
+  if (error) { toast('Could not save tagline.'); console.error(error); return; }
   myGarage.tagline = value;
-  await supabase.from('garages').update({tagline: value}).eq('id', session.user.id);
+  toast('✓ Tagline saved!');
 };
 window.saveGarageDetails = async function(){
   const display_name = document.getElementById('editGarageName').value.trim();
@@ -1011,6 +1026,33 @@ window.confirmPro = async function(){
   if (error) { toast('Upgrade failed.'); console.error(error); return; }
   myGarage.is_pro = true; myGarage.pro_expires_at = proExpires; myGarage.free_boost_credits = newCredits;
   toast('★ Welcome to Pro Garage!');
+  show('mygarage');
+};
+window.renderProScreen = function(){
+  const subBlock = document.getElementById('proSubscribeBlock');
+  const manageBlock = document.getElementById('proManageBlock');
+  if (myGarage.is_pro) {
+    subBlock.style.display = 'none';
+    manageBlock.style.display = 'block';
+    const credits = myGarage.free_boost_credits || 0;
+    document.getElementById('proManageSummary').textContent =
+      `3 photos per item, a custom tagline, and ${credits} free boost credit${credits===1?'':'s'} left this month.`;
+  } else {
+    subBlock.style.display = 'block';
+    manageBlock.style.display = 'none';
+  }
+};
+window.cancelPro = async function(){
+  const ok = confirm("Cancel Pro Garage? Your tagline will clear, remaining free boost credits will be removed, and any item photos beyond the first will be hidden until you're Pro again. This won't delete anything — just hides it.");
+  if (!ok) return;
+
+  const { error } = await supabase.from('garages').update({
+    is_pro: false, pro_expires_at: null, free_boost_credits: 0, tagline: ''
+  }).eq('id', session.user.id);
+  if (error) { toast('Could not cancel Pro.'); console.error(error); return; }
+
+  myGarage.is_pro = false; myGarage.pro_expires_at = null; myGarage.free_boost_credits = 0; myGarage.tagline = '';
+  toast('Pro Garage cancelled.');
   show('mygarage');
 };
 

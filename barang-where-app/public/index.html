@@ -194,22 +194,43 @@
     <!-- PRO -->
     <div class="screen" id="screen-pro">
       <div class="thread-header"><span class="back" onclick="show('mygarage')">←</span><span style="font-weight:700; font-size:13px;">PRO GARAGE</span></div>
-      <div class="pro-banner" style="margin-top:14px; cursor:default;">
-        <div class="kicker">For neighbours who sell often</div>
-        <h3>Pro Garage</h3>
-        <p>Listing is always free and unlimited — Pro adds extras. $2.90/mo.</p>
+
+      <!-- Shown when NOT subscribed -->
+      <div id="proSubscribeBlock">
+        <div class="pro-banner" style="margin-top:14px; cursor:default;">
+          <div class="kicker">For neighbours who sell often</div>
+          <h3>Pro Garage</h3>
+          <p>Listing is always free and unlimited — Pro adds extras. $2.90/mo.</p>
+        </div>
+        <ul class="feature-list">
+          <li><span class="tick">✓</span><div><b>3 photos per item</b></div></li>
+          <li><span class="tick">✓</span><div><b>Custom garage tagline</b></div></li>
+          <li><span class="tick">✓</span><div><b>Pro badge on your garage</b></div></li>
+          <li><span class="tick">✓</span><div><b>3 free boost credits / month</b></div></li>
+        </ul>
+        <div class="paynow-row">
+          <div class="icon">🇸🇬</div>
+          <div><div class="t">Payment integration needed</div><div class="s">This demo writes Pro status directly to your database — wire up Stripe/PayNow before charging real money.</div></div>
+        </div>
+        <button class="btn block red" style="margin-top:18px;" onclick="confirmPro()">Start Pro Garage — $2.90/mo</button>
       </div>
-      <ul class="feature-list">
-        <li><span class="tick">✓</span><div><b>3 photos per item</b></div></li>
-        <li><span class="tick">✓</span><div><b>Custom garage tagline</b></div></li>
-        <li><span class="tick">✓</span><div><b>Pro badge on your garage</b></div></li>
-        <li><span class="tick">✓</span><div><b>3 free boost credits / month</b></div></li>
-      </ul>
-      <div class="paynow-row">
-        <div class="icon">🇸🇬</div>
-        <div><div class="t">Payment integration needed</div><div class="s">This demo writes Pro status directly to your database — wire up Stripe/PayNow before charging real money.</div></div>
+
+      <!-- Shown when ALREADY subscribed -->
+      <div id="proManageBlock" style="display:none;">
+        <div class="pro-banner" style="margin-top:14px; cursor:default;">
+          <div class="kicker">Pro Garage active</div>
+          <h3>You're all set</h3>
+          <p id="proManageSummary"></p>
+        </div>
+        <ul class="feature-list">
+          <li><span class="tick">✓</span><div><b>3 photos per item</b></div></li>
+          <li><span class="tick">✓</span><div><b>Custom garage tagline</b></div></li>
+          <li><span class="tick">✓</span><div><b>Pro badge on your garage</b></div></li>
+          <li><span class="tick">✓</span><div><b>3 free boost credits / month</b></div></li>
+        </ul>
+        <div class="field-hint" style="margin-top:16px;">Cancelling resets your Pro perks immediately: your garage tagline clears, remaining free boost credits are removed, and any item photos beyond the first are hidden (not deleted) until you're Pro again.</div>
+        <button class="btn block ghost" style="margin-top:14px; border-color:var(--hdb-red); color:var(--hdb-red);" onclick="cancelPro()">Cancel Pro Garage</button>
       </div>
-      <button class="btn block red" style="margin-top:18px;" onclick="confirmPro()">Start Pro Garage — $2.90/mo</button>
     </div>
 
     <!-- PROFILE -->
