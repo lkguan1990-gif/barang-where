@@ -381,11 +381,13 @@ window.openGarage = async function(id){
   const c = colorFor(id);
   const liked = savedGarageIds.has(id);
   document.getElementById('garageHeaderBox').innerHTML = `
-    <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').slice(0,3).toUpperCase())}</div></div>
-    <div class="who">
-      <div class="name">${esc(g.display_name)}'s Garage</div>
-      <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${(g.distance!==null && g.distance!==undefined) ? '· '+(g.distance<15?'in your block':g.distance+'m away') : ''}</div>
-      <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
+    <div class="garage-header-top">
+      <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').slice(0,3).toUpperCase())}</div></div>
+      <div class="who">
+        <div class="name">${esc(g.display_name)}'s Garage</div>
+        <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${(g.distance!==null && g.distance!==undefined) ? '· '+(g.distance<15?'in your block':g.distance+'m away') : ''}</div>
+        <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
+      </div>
     </div>
     <div class="garage-header-like ${liked?'liked':''}" onclick="toggleSaveGarage('${id}', event)">${liked?'♥ Liked':'♡ Like this garage'}</div>`;
   const grid = document.getElementById('garageItemGrid');
@@ -676,9 +678,10 @@ window.renderMyGarage = function(){
     </div>`;
 
   const box = document.getElementById('myItemsList');
-  box.innerHTML = myItems.length===0
+  const sortedItems = myItems.slice().sort((a,b) => (a.status==='Sold'?1:0) - (b.status==='Sold'?1:0));
+  box.innerHTML = sortedItems.length===0
     ? `<div class="empty"><div class="glyph">📦</div><p>Your garage is empty.<br>List your first item — someone in your block might need exactly that.</p></div>`
-    : myItems.map(it=>`
+    : sortedItems.map(it=>`
       <div class="my-item-row" style="position:relative;">
         ${it.boosted ? '<div class="mi-boost-flag" style="top:-6px; left:34px;">🔥</div>' : ''}
         <div class="row-top">
@@ -694,7 +697,9 @@ window.renderMyGarage = function(){
             <div class="status-pill ${it.status==='Reserved'?'active reserved':''}" onclick="setStatus('${it.id}','Reserved')">Reserved</div>
             <div class="status-pill ${it.status==='Sold'?'active sold':''}" onclick="setStatus('${it.id}','Sold')">Sold</div>
           </div>
-          <div class="boost-btn ${it.boosted?'is-boosted':''}" onclick="openBoost('${it.id}')">${it.boosted?'🔥 Boosted':'🔥 Boost'}</div>
+          ${it.status==='Sold'
+            ? `<div class="boost-btn is-disabled" title="Can't boost a sold item">🔥 Sold</div>`
+            : `<div class="boost-btn ${it.boosted?'is-boosted':''}" onclick="openBoost('${it.id}')">${it.boosted?'🔥 Boosted':'🔥 Boost'}</div>`}
         </div>
       </div>`).join('');
 };
