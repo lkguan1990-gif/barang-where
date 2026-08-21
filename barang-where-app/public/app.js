@@ -66,6 +66,9 @@ const RADIUS_OPTIONS = [1, 3, null]; // null = "Any"
 /* =========================================================
    HELPERS
 ========================================================= */
+function isActivelyBoosted(it){
+  return !!(it && it.boosted && it.boost_expires_at && new Date(it.boost_expires_at) > new Date());
+}
 function sameBlock(g){
   return (g.block||'').trim().toLowerCase() === (myGarage.block||'').trim().toLowerCase()
       && (g.town||'').trim().toLowerCase() === (myGarage.town||'').trim().toLowerCase();
@@ -324,8 +327,8 @@ window.setRadius = function(km){ radiusKm = km; buildRadiusChips(); renderGarage
 function renderGarageList(){
   const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
   let list = nearbyGarages.slice().sort((a,b)=>{
-    const aBoost = (a.items||[]).some(i=>i.boosted) ? 1 : 0;
-    const bBoost = (b.items||[]).some(i=>i.boosted) ? 1 : 0;
+    const aBoost = (a.items||[]).some(i=>isActivelyBoosted(i)) ? 1 : 0;
+    const bBoost = (b.items||[]).some(i=>isActivelyBoosted(i)) ? 1 : 0;
     if (aBoost !== bBoost) return bBoost - aBoost;
     const ad = a.distance ?? Infinity, bd = b.distance ?? Infinity;
     return ad - bd;
@@ -358,9 +361,9 @@ function renderGarageList(){
 function garageCardHtml(g){
   const c = colorFor(g.id);
   const items = (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || (it.categories||[]).includes(activeCategory)));
-  const preview = items.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${it.boosted?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
+  const preview = items.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${isActivelyBoosted(it)?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
   const more = (g.items||[]).length>4 ? `<div class="mini-item more">+${g.items.length-4}</div>` : '';
-  const isBoosted = (g.items||[]).some(i=>i.boosted);
+  const isBoosted = (g.items||[]).some(i=>isActivelyBoosted(i));
   const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : g.distance+'m');
   const liked = savedGarageIds.has(g.id);
   return `
@@ -369,7 +372,7 @@ function garageCardHtml(g){
       <div class="garage-like-btn ${liked?'liked':''}" onclick="toggleSaveGarage('${g.id}', event)">${liked?'♥':'♡'}</div>
       <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="info">
-        <div class="row1"><div class="name">${esc(g.display_name)}'s Garage</div><div class="dist">${distLabel}</div></div>
+        <div class="row1"><div class="name">${esc(g.display_name)}</div><div class="dist">${distLabel}</div></div>
         <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
         <div class="preview">${preview}${more}</div>
       </div>
@@ -400,7 +403,7 @@ window.openGarage = async function(id){
     <div class="garage-header-top">
       <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="who">
-        <div class="name">${esc(g.display_name)}'s Garage</div>
+        <div class="name">${esc(g.display_name)}</div>
         <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${sameBlock(g) ? '· in your block' : ((g.distance!==null && g.distance!==undefined) ? '· '+g.distance+'m away' : '')}</div>
         <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
       </div>
@@ -420,7 +423,7 @@ function itemCardHtml(it, garageId, fromScreen){
   <div class="item-card" onclick="itemDetailFrom='${from}'; openItem('${it.id}','${garageId}')">
     <div class="item-photo" style="background:${colorFor(it.id)}22;">
       ${mediaFill(it)}
-      ${it.boosted ? '<div class="boost-tag" style="top:6px; left:6px; right:auto;">🔥</div>' : ''}
+      ${isActivelyBoosted(it) ? '<div class="boost-tag" style="top:6px; left:6px; right:auto;">🔥</div>' : ''}
       <div class="status-tag ${statusClass}">${it.status}</div>
     </div>
     <div class="item-body">
@@ -488,7 +491,7 @@ window.openItem = function(itemId, garageId){
     ${isMine ? '' : `
     <div class="seller-strip" onclick="openGarage('${g.id}')">
       <div class="block-tile sz-sm" style="background:${c};"><div class="num">${esc(g.block)}</div></div>
-      <div><div class="name">${esc(g.display_name)}'s Garage</div><div class="addr">Blk ${esc(g.block)}, ${esc(g.town)}</div></div>
+      <div><div class="name">${esc(g.display_name)}</div><div class="addr">Blk ${esc(g.block)}, ${esc(g.town)}</div></div>
     </div>`}
     <div class="action-row">
       ${isMine
@@ -737,7 +740,7 @@ window.renderMyGarage = function(){
     ? `<div class="empty"><div class="glyph">📦</div><p>Your garage is empty.<br>List your first item — someone in your block might need exactly that.</p></div>`
     : sortedItems.map(it=>`
       <div class="my-item-row" style="position:relative;">
-        ${it.boosted ? '<div class="mi-boost-flag" style="top:-6px; left:34px;">🔥</div>' : ''}
+        ${isActivelyBoosted(it) ? '<div class="mi-boost-flag" style="top:-6px; left:34px;">🔥</div>' : ''}
         <div class="row-top">
           <div class="ph" onclick="openItem('${it.id}','mine')">${mediaFill(it)}</div>
           <div class="body" onclick="openItem('${it.id}','mine')">
@@ -753,7 +756,9 @@ window.renderMyGarage = function(){
           </div>
           ${it.status==='Sold'
             ? `<div class="boost-btn is-disabled" title="Can't boost a sold item">🔥 Sold</div>`
-            : `<div class="boost-btn ${it.boosted?'is-boosted':''}" onclick="openBoost('${it.id}')">${it.boosted?'🔥 Boosted':'🔥 Boost'}</div>`}
+            : isActivelyBoosted(it)
+              ? `<div class="boost-btn is-boosted is-disabled" title="Boosted until ${new Date(it.boost_expires_at).toLocaleString()}">🔥 Boosted</div>`
+              : `<div class="boost-btn" onclick="openBoost('${it.id}')">🔥 Boost</div>`}
         </div>
       </div>`).join('');
 };
@@ -995,9 +1000,10 @@ window.submitItem = async function(){
    BOOST A LISTING
 ========================================================= */
 window.openBoost = function(itemId){
+  const it = myItems.find(i=>i.id===itemId);
+  if (isActivelyBoosted(it)) { toast(`Already boosted until ${new Date(it.boost_expires_at).toLocaleString()}.`); return; }
   boostingItemId = itemId;
   selectedBoostOption = 0;
-  const it = myItems.find(i=>i.id===itemId);
   document.getElementById('boostItemStrip').innerHTML = `
     <div class="ph">${mediaFill(it)}</div><div><div class="t">${esc(it.title)}</div><div class="p">$${Number(it.price).toFixed(2)}</div></div>`;
   renderBoostOptions();
