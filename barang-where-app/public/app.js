@@ -52,7 +52,7 @@ let formPhotos = [];
 let savedItemIds = new Set();
 let savedGarageIds = new Set();
 let radiusKm = 1; // default 1km; null means "Any distance"
-const RADIUS_OPTIONS = [0.5, 1, 3, 5, 10, null]; // null = "Any"
+const RADIUS_OPTIONS = [1, 3, null]; // null = "Any"
 
 /* =========================================================
    HELPERS
@@ -241,7 +241,7 @@ window.loadNearby = async function(){
     distance: haversineMeters(myGarage.lat, myGarage.lng, g.lat, g.lng)
   }));
   document.getElementById('estateName').textContent = myGarage.town || '—';
-  document.getElementById('topbarSub').textContent = '📍 ' + (myGarage.town || 'Nearby') + ' · live';
+  document.getElementById('topbarSub').textContent = '📍 ' + (myGarage.town || 'Nearby');
   renderGarageList();
 };
 function renderLocationWarning(){

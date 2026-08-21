@@ -167,7 +167,7 @@
     display:flex; gap:12px; padding:12px; background:var(--card); border-radius:12px;
     border:2px solid var(--ink); cursor:pointer; box-shadow:var(--shadow);
   }
-  .garage-card .info{flex:1; min-width:0;}
+  .garage-card .info{flex:1; min-width:0; padding-right:38px;}
   .garage-card .row1{display:flex; align-items:center; justify-content:space-between; gap:6px;}
   .garage-card .name{font-weight:800; font-size:15px;}
   .garage-card .dist{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--zinc-blue); font-weight:600; flex:0 0 auto;}
