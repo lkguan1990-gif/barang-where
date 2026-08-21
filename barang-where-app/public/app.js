@@ -471,7 +471,7 @@ window.openItem = function(itemId, garageId){
     : '';
 
   document.getElementById('itemDetailBox').innerHTML = `
-    <div class="item-detail-photo" style="background:${c}22;">
+    <div class="item-detail-photo" style="background:${c}22;" ontouchstart="handlePhotoTouchStart(event)" ontouchend="handlePhotoTouchEnd(event)">
       ${mainMedia}
       ${isMine ? '' : `<div class="save-btn ${saved?'saved':''}" onclick="toggleSave('${itemId}', event)">${saved?'♥':'♡'}</div>`}
       ${dots}
@@ -521,6 +521,26 @@ window.setDetailPhoto = function(i, evt){
   if (!currentItemCache?.photos?.[i]) return;
   document.getElementById('detailMainImg').src = currentItemCache.photos[i];
   document.querySelectorAll('.photo-dot').forEach((d,idx)=>d.classList.toggle('active', idx===i));
+};
+let swipeStartX = null, swipeStartY = null;
+window.handlePhotoTouchStart = function(e){
+  const t = e.changedTouches[0];
+  swipeStartX = t.clientX; swipeStartY = t.clientY;
+};
+window.handlePhotoTouchEnd = function(e){
+  if (swipeStartX === null) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swipeStartX;
+  const dy = t.clientY - swipeStartY;
+  swipeStartX = null; swipeStartY = null;
+  if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return; // require a real horizontal swipe
+  const dots = document.querySelectorAll('.photo-dot');
+  if (!dots.length) return;
+  let current = 0;
+  dots.forEach((d,i)=>{ if (d.classList.contains('active')) current = i; });
+  const next = dx < 0 ? current + 1 : current - 1; // swipe left = next photo
+  if (next < 0 || next >= dots.length) return; // clamp at the ends, no wraparound
+  setDetailPhoto(next);
 };
 window.toggleSave = async function(itemId, evt){
   if (evt) evt.stopPropagation();
@@ -984,16 +1004,17 @@ window.openBoost = function(itemId){
   show('boost');
 };
 function renderBoostOptions(){
-  const hasFreeCredit = myGarage.is_pro && myGarage.free_boost_credits > 0;
+  const credits = myGarage.free_boost_credits || 0;
+  const hasFreeCredit = myGarage.is_pro && credits > 0;
   const box = document.getElementById('boostOptions');
   box.innerHTML = BOOST_OPTIONS.map((opt,i)=>`
     <div class="price-card ${i===selectedBoostOption?'selected':''}" onclick="selectBoost(${i})">
       <div class="l"><div class="t">${opt.label}</div><div class="s">${opt.sub}</div></div>
-      <div class="p">$${opt.price.toFixed(2)}</div><div class="radio-dot"></div>
+      <div class="right"><div class="p">$${opt.price.toFixed(2)}</div><div class="radio-dot"></div></div>
     </div>`).join('') + (hasFreeCredit ? `
     <div class="price-card ${selectedBoostOption===99?'selected':''}" onclick="selectBoost(99)">
-      <div class="l"><div class="t">Use free Pro credit</div><div class="s">24 hours, no charge</div></div>
-      <div class="p">$0</div><div class="radio-dot"></div>
+      <div class="l"><div class="t">Use free Pro credit</div><div class="s">24 hours, no charge — ${credits} credit${credits===1?'':'s'} left</div></div>
+      <div class="right"><div class="p">$0</div><div class="radio-dot"></div></div>
     </div>` : '');
   const price = selectedBoostOption===99 ? 0 : BOOST_OPTIONS[selectedBoostOption].price;
   document.getElementById('boostConfirmPrice').textContent = price===0 ? 'Free' : '$'+price.toFixed(2);
