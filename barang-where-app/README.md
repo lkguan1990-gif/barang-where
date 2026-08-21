@@ -84,14 +84,20 @@ git push -u origin main
 
 ### Connect Cloudflare Pages to that repo
 
+This repo includes a `wrangler.jsonc` file at its root, which tells
+Cloudflare's deploy tooling exactly where the static site lives
+(`./public`). This is required — without it, Cloudflare's build step
+(`wrangler deploy`) won't know which folder to publish and the deploy
+will fail with a "Could not detect a directory containing static files"
+error.
+
 1. In the [Cloudflare dashboard](https://dash.cloudflare.com), go to
    **Workers & Pages → Create → Pages → Connect to Git**.
 2. Authorize Cloudflare to access your GitHub account, then pick the
    repo you just pushed.
-3. Set the build configuration:
-   - **Framework preset**: None
-   - **Build command**: *(leave empty — there's nothing to build)*
-   - **Build output directory**: `public`
+3. Cloudflare will detect the `wrangler.jsonc` file automatically —
+   you shouldn't need to set a build command or output directory
+   manually.
 4. Click **Save and Deploy**. You'll get a working `*.pages.dev` URL
    within a minute or two.
 

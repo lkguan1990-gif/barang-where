@@ -111,6 +111,15 @@
   .estate-banner .where{font-size:12px; color:var(--ink-soft);}
   .estate-banner .where b{color:var(--ink);}
 
+  /* ---------- Location warning banner ---------- */
+  .location-warning{
+    display:flex; align-items:center; gap:10px; background:var(--sunny); border:2px solid var(--ink);
+    border-radius:12px; padding:12px; margin-top:8px; cursor:pointer;
+  }
+  .location-warning .glyph{font-size:20px;}
+  .location-warning .txt{flex:1; font-size:12.5px; font-weight:600; line-height:1.4;}
+  .location-warning .go{font-size:12px; font-weight:800; text-decoration:underline; white-space:nowrap;}
+
   /* ---------- Search + filters ---------- */
   .searchbar{
     display:flex; gap:8px; margin-top:14px;
@@ -162,9 +171,6 @@
     background:var(--terrazzo); border:1px solid var(--line); overflow:hidden;
   }
   .mini-item.more{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-soft); font-weight:600;}
-  .rating-row{display:flex; align-items:center; gap:4px; margin-top:6px;}
-  .stars{color:var(--sunny); font-size:12px; letter-spacing:1px;}
-  .rating-num{font-size:11px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
 
   .empty{
     text-align:center; padding:40px 16px; color:var(--ink-soft);
@@ -207,6 +213,19 @@
     height:220px; border-radius:14px; border:2px solid var(--ink); display:flex; align-items:center; justify-content:center;
     font-size:76px; background:var(--card); box-shadow:var(--shadow); position:relative; overflow:hidden;
   }
+  .lightbox-overlay{
+    position:fixed; inset:0; background:rgba(20,18,14,0.94); z-index:999;
+    display:flex; align-items:center; justify-content:center; cursor:zoom-out;
+    animation:fadeIn .15s ease;
+  }
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  .lightbox-overlay img{max-width:92%; max-height:82%; object-fit:contain; border-radius:8px;}
+  .lightbox-close{
+    position:absolute; top:18px; right:18px; width:38px; height:38px; border-radius:50%;
+    background:var(--card); border:2px solid var(--ink); display:flex; align-items:center; justify-content:center;
+    font-size:18px; color:var(--ink);
+  }
+  .lightbox-hint{position:absolute; bottom:22px; color:#fff; font-size:11.5px; opacity:0.7; font-family:'IBM Plex Mono',monospace;}
   .photo-dots{position:absolute; bottom:10px; left:0; right:0; display:flex; justify-content:center; gap:6px;}
   .photo-dot{width:7px;height:7px;border-radius:50%; background:rgba(255,255,255,0.55); border:1px solid rgba(0,0,0,0.25); cursor:pointer;}
   .photo-dot.active{background:var(--sunny);}
@@ -303,17 +322,27 @@
   .stat-box .n{font-family:'Anton',sans-serif; font-size:20px;}
   .stat-box .l{font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-top:2px;}
   .my-item-row{
-    display:flex; align-items:center; gap:10px; background:var(--card); border:2px solid var(--ink); border-radius:12px;
+    background:var(--card); border:2px solid var(--ink); border-radius:12px;
     padding:10px; margin-bottom:9px;
   }
+  .my-item-row .row-top{display:flex; align-items:center; gap:10px;}
   .my-item-row .ph{font-size:24px; width:48px;height:48px; border-radius:9px; background:var(--terrazzo); display:flex;align-items:center;justify-content:center; flex:0 0 auto; overflow:hidden;}
   .my-item-row .body{flex:1; min-width:0;}
   .my-item-row .t{font-weight:700; font-size:13px;}
   .my-item-row .p{font-family:'IBM Plex Mono',monospace; color:var(--hdb-red); font-size:12.5px; margin-top:2px;}
-  .status-select{
-    font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; text-transform:uppercase; border-radius:6px;
-    padding:5px 6px; border:1.5px solid var(--ink); background:var(--terrazzo); cursor:pointer;
+  .my-item-row .row-bottom{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    margin-top:10px; padding-top:10px; border-top:1.5px dashed rgba(36,41,31,0.2);
   }
+  .status-pills{display:flex; gap:6px;}
+  .status-pill{
+    font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em;
+    border-radius:6px; padding:7px 9px; border:1.5px solid var(--ink); background:var(--terrazzo); color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .status-pill.active.available{background:var(--olive); color:#fff; border-color:var(--olive);}
+  .status-pill.active.reserved{background:var(--sunny); color:var(--ink); border-color:var(--sunny);}
+  .status-pill.active.sold{background:var(--ink); color:var(--terrazzo);}
   .del-x{cursor:pointer; font-size:16px; color:var(--ink-soft); padding:4px;}
 
   /* ---------- Add item form ---------- */
@@ -426,6 +455,12 @@
   }
   .navbtn.active{color:var(--sunny);}
   .navbtn svg{width:20px;height:20px;}
+  .nav-icon-wrap{position:relative; display:inline-flex;}
+  .nav-badge{
+    position:absolute; top:-6px; right:-9px; background:var(--hdb-red); color:#fff;
+    font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:800; min-width:15px; height:15px;
+    border-radius:50%; align-items:center; justify-content:center; padding:0 3px; border:1.5px solid var(--ink);
+  }
 
   a{color:inherit;}
   ::-webkit-scrollbar{display:none;}

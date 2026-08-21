@@ -42,6 +42,9 @@ let currentItemCache = null;  // last-opened item detail, so we don't need a ref
 let currentGarageId = null;
 let currentConversation = null;
 let realtimeChannel = null;
+let globalMessageChannel = null;
+let currentScreen = 'nearby';
+let unreadConversationIds = new Set();
 let boostingItemId = null;
 let selectedBoostOption = 0;
 let formPhotos = [];
@@ -54,10 +57,6 @@ function colorFor(id){
   let h = 0;
   for (const c of String(id)) h = (h*31 + c.charCodeAt(0)) % PALETTE.length;
   return PALETTE[Math.abs(h)];
-}
-function stars(r){
-  const full = Math.round(r || 5);
-  return "★★★★★".slice(0, full) + "☆☆☆☆☆".slice(0, 5-full);
 }
 function mediaFill(item){
   if (item.photos && item.photos.length) {
@@ -119,6 +118,7 @@ async function route(){
   document.getElementById('mainApp').style.display = 'block';
   buildCategoryChips();
   await Promise.all([loadNearby(), loadMyItems(), loadSaved()]);
+  subscribeToGlobalMessages();
   show('nearby');
 }
 
@@ -162,6 +162,8 @@ window.finishOnboarding = async function(){
 
 window.signOut = async function(){
   await supabase.auth.signOut();
+  if (globalMessageChannel) { supabase.removeChannel(globalMessageChannel); globalMessageChannel = null; }
+  unreadConversationIds.clear();
   myGarage = null; myItems = []; nearbyGarages = [];
   route();
 };
@@ -170,6 +172,7 @@ window.signOut = async function(){
    NAVIGATION
 ========================================================= */
 window.show = function(screen){
+  currentScreen = screen;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const el = document.getElementById('screen-'+screen);
   if (el) el.classList.add('active');
@@ -184,14 +187,41 @@ window.show = function(screen){
   if (screen==='chats') renderChats();
   if (screen==='profile') renderProfile();
   if (screen !== 'thread' && realtimeChannel) { supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
+  updateChatBadge();
   window.scrollTo(0,0);
 };
+function updateChatBadge(){
+  const badge = document.getElementById('chatsBadge');
+  if (!badge) return;
+  const count = unreadConversationIds.size;
+  if (count > 0) { badge.textContent = count; badge.style.display = 'flex'; }
+  else { badge.style.display = 'none'; }
+}
+function subscribeToGlobalMessages(){
+  if (globalMessageChannel) supabase.removeChannel(globalMessageChannel);
+  globalMessageChannel = supabase
+    .channel('global-messages')
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'messages'
+    }, (payload) => {
+      const msg = payload.new;
+      if (msg.sender_id === session.user.id) return; // ignore our own sends
+      const viewingThisThread = currentScreen === 'thread' && currentConversation?.id === msg.conversation_id;
+      if (viewingThisThread) return; // per-thread subscription already handles this case
+      unreadConversationIds.add(msg.conversation_id);
+      updateChatBadge();
+      toast('💬 New message');
+      if (currentScreen === 'chats') renderChats();
+    })
+    .subscribe();
+}
 
 /* =========================================================
    NEARBY
 ========================================================= */
 window.loadNearby = async function(){
   document.getElementById('resultsCount').textContent = 'Loading…';
+  renderLocationWarning();
   const { data, error } = await supabase
     .from('garages')
     .select('*, items(*)')
@@ -205,6 +235,36 @@ window.loadNearby = async function(){
   document.getElementById('estateName').textContent = myGarage.town || '—';
   document.getElementById('topbarSub').textContent = '📍 ' + (myGarage.town || 'Nearby') + ' · live';
   renderGarageList();
+};
+function renderLocationWarning(){
+  const slot = document.getElementById('locationWarningSlot');
+  if (!slot) return;
+  const missing = myGarage.lat === null || myGarage.lat === undefined;
+  slot.innerHTML = missing ? `
+    <div class="location-warning" onclick="requestLocationUpdate()">
+      <div class="glyph">📍</div>
+      <div class="txt">Your location isn't set, so distances to nearby garages can't be shown.</div>
+      <div class="go">Enable →</div>
+    </div>` : '';
+}
+window.requestLocationUpdate = async function(){
+  toast('Requesting your location…');
+  let lat = null, lng = null;
+  try {
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout:8000}));
+    lat = Math.round(pos.coords.latitude * 1000) / 1000;
+    lng = Math.round(pos.coords.longitude * 1000) / 1000;
+  } catch (e) {
+    toast('Could not get your location — check your browser/device location permission.');
+    return;
+  }
+  const { error } = await supabase.from('garages').update({lat, lng}).eq('id', session.user.id);
+  if (error) { toast('Failed to save your location.'); console.error(error); return; }
+  myGarage.lat = lat; myGarage.lng = lng;
+  toast('📍 Location updated!');
+  renderLocationWarning();
+  if (currentScreen === 'profile') renderProfile();
+  await loadNearby();
 };
 function buildCategoryChips(){
   const box = document.getElementById('categoryChips');
@@ -249,7 +309,6 @@ function renderGarageList(){
       <div class="info">
         <div class="row1"><div class="name">${esc(g.display_name)}'s Garage</div><div class="dist">${distLabel}</div></div>
         <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
-        <div class="rating-row"><span class="stars">${stars(g.rating)}</span><span class="rating-num">${(g.rating||5).toFixed(1)}</span></div>
         <div class="preview">${preview}${more}</div>
       </div>
     </div>`;
@@ -269,7 +328,6 @@ window.openGarage = function(id){
     <div class="who">
       <div class="name">${esc(g.display_name)}'s Garage</div>
       <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${g.distance!==null ? '· '+(g.distance<15?'in your block':g.distance+'m away') : ''}</div>
-      <div class="rating-row"><span class="stars">${stars(g.rating)}</span><span class="rating-num">${(g.rating||5).toFixed(1)}</span></div>
       <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
     </div>`;
   const grid = document.getElementById('garageItemGrid');
@@ -314,7 +372,7 @@ window.openItem = function(itemId, garageId){
   const saved = savedItemIds.has(itemId);
   const hasPhotos = item.photos && item.photos.length > 0;
   const mainMedia = hasPhotos
-    ? `<img id="detailMainImg" src="${item.photos[0]}" style="width:100%;height:100%;object-fit:cover;display:block;">`
+    ? `<img id="detailMainImg" src="${item.photos[0]}" style="width:100%;height:100%;object-fit:contain;display:block;cursor:zoom-in;" onclick="openLightbox(this.src, event)">`
     : mediaFill(item);
   const dots = (hasPhotos && item.photos.length > 1)
     ? `<div class="photo-dots">${item.photos.map((_,i)=>`<div class="photo-dot ${i===0?'active':''}" onclick="setDetailPhoto(${i},event)"></div>`).join('')}</div>` : '';
@@ -343,6 +401,25 @@ window.openItem = function(itemId, garageId){
         : `<button class="btn block red" onclick="startChat('${itemId}','${g.id}')">💬 Message ${esc(g.display_name)}</button>`}
     </div>`;
   show('item');
+};
+window.openLightbox = function(src, evt){
+  if (evt) evt.stopPropagation();
+  const overlay = document.createElement('div');
+  overlay.className = 'lightbox-overlay';
+  overlay.onclick = () => overlay.remove();
+  const img = document.createElement('img');
+  img.src = src;
+  img.onclick = (e) => e.stopPropagation();
+  const closeBtn = document.createElement('div');
+  closeBtn.className = 'lightbox-close';
+  closeBtn.textContent = '✕';
+  const hint = document.createElement('div');
+  hint.className = 'lightbox-hint';
+  hint.textContent = 'Tap anywhere to close';
+  overlay.appendChild(img);
+  overlay.appendChild(closeBtn);
+  overlay.appendChild(hint);
+  document.body.appendChild(overlay);
 };
 window.setDetailPhoto = function(i, evt){
   if (evt) evt.stopPropagation();
@@ -395,6 +472,8 @@ async function openThread(convoId){
     .eq('id', convoId).single();
   if (error) { toast('Could not open chat.'); console.error(error); return; }
   currentConversation = convo;
+  unreadConversationIds.delete(convoId);
+  updateChatBadge();
   const otherParty = convo.buyer_id === session.user.id ? convo.seller : convo.buyer;
 
   document.getElementById('threadWho').textContent = (otherParty?.display_name || 'Chat').toUpperCase();
@@ -464,6 +543,7 @@ window.renderChats = async function(){
     const otherParty = c.buyer_id === session.user.id ? c.seller : c.buyer;
     const msgs = c.messages || [];
     const last = msgs[msgs.length-1];
+    const isUnread = unreadConversationIds.has(c.id);
     return `
     <div class="convo-card" onclick="openThread('${c.id}')">
       <div class="convo-thumb">${mediaFill(c.item)}</div>
@@ -472,6 +552,7 @@ window.renderChats = async function(){
         <div class="convo-item">${esc(c.item.title)} · $${c.item.price}</div>
         <div class="convo-last">${last ? (last.sender_id===session.user.id?'You: ':'') + esc(last.body) : 'Say hi 👋'}</div>
       </div>
+      ${isUnread ? '<div class="unread-dot"></div>' : ''}
     </div>`;
   }).join('');
 };
@@ -491,7 +572,6 @@ window.renderMyGarage = function(){
   document.getElementById('myAddrLine').textContent = `Blk ${myGarage.block}, ${myGarage.town}`;
   document.getElementById('myItemCount').textContent = myItems.filter(i=>i.status!=='Sold').length;
   document.getElementById('mySoldCount').textContent = myItems.filter(i=>i.status==='Sold').length;
-  document.getElementById('myRating').textContent = (myGarage.rating||5).toFixed(1);
   document.getElementById('proBadgeSlot').innerHTML = myGarage.is_pro ? '<span class="pro-badge">★ PRO</span>' : '';
 
   const proSlot = document.getElementById('proBannerSlot');
@@ -517,17 +597,21 @@ window.renderMyGarage = function(){
     : myItems.map(it=>`
       <div class="my-item-row" style="position:relative;">
         ${it.boosted ? '<div class="mi-boost-flag" style="top:-6px; left:34px;">🔥</div>' : ''}
-        <div class="ph" onclick="openItem('${it.id}','mine')">${mediaFill(it)}</div>
-        <div class="body" onclick="openItem('${it.id}','mine')">
-          <div class="t">${esc(it.title)}</div><div class="p">$${it.price}</div>
+        <div class="row-top">
+          <div class="ph" onclick="openItem('${it.id}','mine')">${mediaFill(it)}</div>
+          <div class="body" onclick="openItem('${it.id}','mine')">
+            <div class="t">${esc(it.title)}</div><div class="p">$${it.price}</div>
+          </div>
+          <div class="del-x" onclick="deleteItem('${it.id}')">✕</div>
         </div>
-        <div class="boost-btn ${it.boosted?'is-boosted':''}" onclick="openBoost('${it.id}')">${it.boosted?'🔥 Boosted':'🔥 Boost'}</div>
-        <select class="status-select" onchange="setStatus('${it.id}', this.value)">
-          <option ${it.status==='Available'?'selected':''}>Available</option>
-          <option ${it.status==='Reserved'?'selected':''}>Reserved</option>
-          <option ${it.status==='Sold'?'selected':''}>Sold</option>
-        </select>
-        <div class="del-x" onclick="deleteItem('${it.id}')">✕</div>
+        <div class="row-bottom">
+          <div class="status-pills">
+            <div class="status-pill ${it.status==='Available'?'active available':''}" onclick="setStatus('${it.id}','Available')">Available</div>
+            <div class="status-pill ${it.status==='Reserved'?'active reserved':''}" onclick="setStatus('${it.id}','Reserved')">Reserved</div>
+            <div class="status-pill ${it.status==='Sold'?'active sold':''}" onclick="setStatus('${it.id}','Sold')">Sold</div>
+          </div>
+          <div class="boost-btn ${it.boosted?'is-boosted':''}" onclick="openBoost('${it.id}')">${it.boosted?'🔥 Boosted':'🔥 Boost'}</div>
+        </div>
       </div>`).join('');
 };
 window.saveTagline = async function(value){
@@ -695,6 +779,10 @@ window.renderProfile = function(){
   document.getElementById('profileName').textContent = myGarage.display_name;
   document.getElementById('profileAddr').textContent = `Blk ${myGarage.block}, ${myGarage.town}`;
   document.getElementById('savedCountRow').textContent = savedItemIds.size + ' saved';
+  const locText = document.getElementById('locationStatusText');
+  const missing = myGarage.lat === null || myGarage.lat === undefined;
+  locText.textContent = missing ? 'Not set — tap to enable' : 'Set · tap to refresh';
+  locText.style.color = missing ? 'var(--hdb-red)' : '';
 };
 
 /* =========================================================
