@@ -190,7 +190,15 @@
       <div class="profile-list">
         <div class="profile-row"><span>My Garage</span><span class="r" onclick="show('mygarage')" style="cursor:pointer;">Manage →</span></div>
         <div class="profile-row"><span>Saved items</span><span class="r" id="savedCountRow">0 saved</span></div>
-        <div class="profile-row" id="locationRow"><span>Location</span><span class="r" id="locationStatusText" style="cursor:pointer;" onclick="requestLocationUpdate()">—</span></div>
+        <div class="profile-row" id="locationRow" style="flex-direction:column; align-items:stretch; gap:10px;">
+          <span style="font-weight:700;">Location</span>
+          <div class="status-pills">
+            <div class="status-pill" id="modeFixedBtn" onclick="setLocationMode('fixed')">🏠 Fixed (home)</div>
+            <div class="status-pill" id="modeLiveBtn" onclick="setLocationMode('live')">📡 Live (current)</div>
+          </div>
+          <div class="field-hint" id="locationModeHint"></div>
+          <button class="btn small ghost" id="locationActionBtn" style="align-self:flex-start;" onclick="requestLocationUpdate()">Update location</button>
+        </div>
         <div class="profile-row"><span>Sign out</span><span class="r" style="cursor:pointer; color:var(--hdb-red); font-weight:700;" onclick="signOut()">Sign out</span></div>
       </div>
     </div>

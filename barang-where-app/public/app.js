@@ -240,14 +240,21 @@ function renderLocationWarning(){
   const slot = document.getElementById('locationWarningSlot');
   if (!slot) return;
   const missing = myGarage.lat === null || myGarage.lat === undefined;
+  const label = (myGarage.location_mode === 'live') ? 'current location' : 'home location';
   slot.innerHTML = missing ? `
     <div class="location-warning" onclick="requestLocationUpdate()">
       <div class="glyph">📍</div>
-      <div class="txt">Your location isn't set, so distances to nearby garages can't be shown.</div>
+      <div class="txt">Your ${label} isn't set, so distances to nearby garages can't be shown.</div>
       <div class="go">Enable →</div>
     </div>` : '';
 }
 window.requestLocationUpdate = async function(){
+  const mode = myGarage.location_mode || 'fixed';
+  const alreadySet = myGarage.lat !== null && myGarage.lat !== undefined;
+  if (mode === 'fixed' && alreadySet) {
+    const ok = confirm("This will update your home location to wherever you are right now. Only do this if you're actually at home. Continue?");
+    if (!ok) return;
+  }
   toast('Requesting your location…');
   let lat = null, lng = null;
   try {
@@ -261,10 +268,18 @@ window.requestLocationUpdate = async function(){
   const { error } = await supabase.from('garages').update({lat, lng}).eq('id', session.user.id);
   if (error) { toast('Failed to save your location.'); console.error(error); return; }
   myGarage.lat = lat; myGarage.lng = lng;
-  toast('📍 Location updated!');
+  toast(mode === 'fixed' ? '🏠 Home location updated!' : '📡 Current location updated!');
   renderLocationWarning();
   if (currentScreen === 'profile') renderProfile();
   await loadNearby();
+};
+window.setLocationMode = async function(mode){
+  if (myGarage.location_mode === mode) return;
+  myGarage.location_mode = mode;
+  const { error } = await supabase.from('garages').update({location_mode: mode}).eq('id', session.user.id);
+  if (error) { toast('Failed to switch mode.'); console.error(error); return; }
+  toast(mode === 'fixed' ? 'Switched to Fixed (home) mode' : 'Switched to Live (current) mode');
+  renderProfile();
 };
 function buildCategoryChips(){
   const box = document.getElementById('categoryChips');
@@ -779,10 +794,25 @@ window.renderProfile = function(){
   document.getElementById('profileName').textContent = myGarage.display_name;
   document.getElementById('profileAddr').textContent = `Blk ${myGarage.block}, ${myGarage.town}`;
   document.getElementById('savedCountRow').textContent = savedItemIds.size + ' saved';
-  const locText = document.getElementById('locationStatusText');
+
+  const mode = myGarage.location_mode || 'fixed';
   const missing = myGarage.lat === null || myGarage.lat === undefined;
-  locText.textContent = missing ? 'Not set — tap to enable' : 'Set · tap to refresh';
-  locText.style.color = missing ? 'var(--hdb-red)' : '';
+  document.getElementById('modeFixedBtn').className = 'status-pill' + (mode==='fixed' ? ' active mode-fixed' : '');
+  document.getElementById('modeLiveBtn').className = 'status-pill' + (mode==='live' ? ' active mode-live' : '');
+
+  const hint = document.getElementById('locationModeHint');
+  const actionBtn = document.getElementById('locationActionBtn');
+  if (mode === 'fixed') {
+    hint.textContent = missing
+      ? "Your home location isn't set yet — items won't show a distance to buyers until you set it."
+      : "Neighbours can find your garage near this fixed point, even while you're out.";
+    actionBtn.textContent = missing ? '🏠 Set my home location' : '🏠 Update home location';
+  } else {
+    hint.textContent = missing
+      ? "Your current location isn't set yet."
+      : "Your garage shows up wherever you last refreshed your location from.";
+    actionBtn.textContent = '📡 Refresh current location';
+  }
 };
 
 /* =========================================================

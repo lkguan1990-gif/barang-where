@@ -17,6 +17,7 @@ create table public.garages (
   town                 text not null default 'Sengkang',
   lat                  double precision,   -- rounded to ~100m before saving, see app.js
   lng                  double precision,
+  location_mode        text not null default 'fixed' check (location_mode in ('fixed','live')),
   tagline              text default '',
   is_pro               boolean not null default false,
   pro_expires_at       timestamptz,

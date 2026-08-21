@@ -343,6 +343,8 @@
   .status-pill.active.available{background:var(--olive); color:#fff; border-color:var(--olive);}
   .status-pill.active.reserved{background:var(--sunny); color:var(--ink); border-color:var(--sunny);}
   .status-pill.active.sold{background:var(--ink); color:var(--terrazzo);}
+  .status-pill.active.mode-fixed{background:var(--zinc-blue); color:#fff; border-color:var(--zinc-blue);}
+  .status-pill.active.mode-live{background:var(--sunny); color:var(--ink); border-color:var(--sunny);}
   .del-x{cursor:pointer; font-size:16px; color:var(--ink-soft); padding:4px;}
 
   /* ---------- Add item form ---------- */
