@@ -95,6 +95,26 @@ create policy "Users manage their own saved items"
   with check (auth.uid() = user_id);
 
 -- ------------------------------------------------------------
+-- SAVED GARAGES (liking a whole seller, not just one item —
+-- lets a buyer find their way back to a garage even if it's
+-- currently outside their browsing radius or they're away
+-- from home)
+-- ------------------------------------------------------------
+create table public.saved_garages (
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  garage_id   uuid not null references public.garages(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, garage_id)
+);
+
+alter table public.saved_garages enable row level security;
+
+create policy "Users manage their own saved garages"
+  on public.saved_garages for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ------------------------------------------------------------
 -- CONVERSATIONS (one per buyer+item pair)
 -- ------------------------------------------------------------
 create table public.conversations (

@@ -50,6 +50,9 @@ let boostingItemId = null;
 let selectedBoostOption = 0;
 let formPhotos = [];
 let savedItemIds = new Set();
+let savedGarageIds = new Set();
+let radiusKm = 1; // default 1km; null means "Any distance"
+const RADIUS_OPTIONS = [0.5, 1, 3, 5, 10, null]; // null = "Any"
 
 /* =========================================================
    HELPERS
@@ -118,7 +121,8 @@ async function route(){
   myGarage = garage;
   document.getElementById('mainApp').style.display = 'block';
   buildCategoryChips();
-  await Promise.all([loadNearby(), loadMyItems(), loadSaved()]);
+  buildRadiusChips();
+  await Promise.all([loadNearby(), loadMyItems(), loadSaved(), loadSavedGarages()]);
   subscribeToGlobalMessages();
   show('nearby');
 }
@@ -183,11 +187,12 @@ window.show = function(screen){
   const navKey = navMap[screen];
   document.querySelectorAll('.navbtn').forEach(b=>{ if (b.dataset.nav===navKey) b.classList.add('active'); });
 
+  if (screen==='nearby') loadNearby();
   if (screen==='mygarage') renderMyGarage();
   if (screen==='additem') renderAddItemForm();
   if (screen==='chats') renderChats();
   if (screen==='profile') renderProfile();
-  if (screen==='liked') renderLiked();
+  if (screen==='liked') { setLikedTab('items'); renderLiked(); }
   if (screen !== 'thread' && realtimeChannel) { supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
   updateChatBadge();
   window.scrollTo(0,0);
@@ -291,6 +296,17 @@ function buildCategoryChips(){
 }
 window.setCategory = function(c){ activeCategory = c; buildCategoryChips(); renderGarageList(); };
 
+function buildRadiusChips(){
+  const box = document.getElementById('radiusChips');
+  if (!box) return;
+  box.innerHTML = RADIUS_OPTIONS.map(km => {
+    const label = km === null ? 'Any' : (km < 1 ? (km*1000)+'m' : km+'km');
+    const active = km === radiusKm;
+    return `<div class="chip ${active?'active':''}" onclick="setRadius(${km === null ? 'null' : km})">${label}</div>`;
+  }).join('');
+}
+window.setRadius = function(km){ radiusKm = km; buildRadiusChips(); renderGarageList(); };
+
 function renderGarageList(){
   const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
   let list = nearbyGarages.slice().sort((a,b)=>{
@@ -302,27 +318,39 @@ function renderGarageList(){
   });
   const filtered = list.filter(g=>{
     const items = g.items || [];
+    const name = (g.display_name || '').toLowerCase();
+    const block = (g.block || '').toLowerCase();
     const matchesCat = activeCategory==="All" || items.some(it=>it.category===activeCategory);
-    const matchesQ = !q || g.display_name.toLowerCase().includes(q) || g.block.toLowerCase().includes(q)
-      || items.some(it=>it.title.toLowerCase().includes(q));
-    return matchesCat && matchesQ && items.length > 0;
+    const matchesQ = !q || name.includes(q) || block.includes(q)
+      || items.some(it => (it.title||'').toLowerCase().includes(q) || (it.category||'').toLowerCase().includes(q));
+    const hasLocation = g.distance !== null && g.distance !== undefined;
+    const withinRadius = radiusKm === null ? true : (hasLocation && g.distance <= radiusKm*1000);
+    return matchesCat && matchesQ && withinRadius && items.length > 0;
   });
-  document.getElementById('resultsCount').textContent = `${filtered.length} garage${filtered.length===1?'':'s'} nearby`;
+  const radiusLabel = radiusKm === null ? 'any distance' : (radiusKm < 1 ? (radiusKm*1000)+'m' : radiusKm+'km');
+  document.getElementById('resultsCount').textContent = `${filtered.length} garage${filtered.length===1?'':'s'} within ${radiusLabel}`;
   const box = document.getElementById('garageList');
   if (filtered.length===0){
-    box.innerHTML = `<div class="empty"><div class="glyph">🕳️</div><p>No garages match yet.<br>Nearby listings will appear here as neighbours add items.</p></div>`;
+    const reason = nearbyGarages.length===0
+      ? 'Nearby listings will appear here as neighbours add items.'
+      : 'Try a wider radius, a different search, or another category.';
+    box.innerHTML = `<div class="empty"><div class="glyph">🕳️</div><p>No garages match yet.<br>${reason}</p></div>`;
     return;
   }
-  box.innerHTML = filtered.map(g=>{
-    const c = colorFor(g.id);
-    const items = (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || it.category===activeCategory));
-    const preview = items.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${it.boosted?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
-    const more = (g.items||[]).length>4 ? `<div class="mini-item more">+${g.items.length-4}</div>` : '';
-    const isBoosted = (g.items||[]).some(i=>i.boosted);
-    const distLabel = g.distance===null ? '—' : (g.distance < 15 ? 'IN YOUR BLOCK' : g.distance+'m');
-    return `
+  box.innerHTML = filtered.map(g=>garageCardHtml(g)).join('');
+}
+function garageCardHtml(g){
+  const c = colorFor(g.id);
+  const items = (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || it.category===activeCategory));
+  const preview = items.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${it.boosted?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
+  const more = (g.items||[]).length>4 ? `<div class="mini-item more">+${g.items.length-4}</div>` : '';
+  const isBoosted = (g.items||[]).some(i=>i.boosted);
+  const distLabel = (g.distance===null || g.distance===undefined) ? '—' : (g.distance < 15 ? 'IN YOUR BLOCK' : g.distance+'m');
+  const liked = savedGarageIds.has(g.id);
+  return `
     <div class="garage-card" style="position:relative;" onclick="openGarage('${g.id}')">
       ${isBoosted ? '<div class="boost-tag">🔥 Boosted</div>' : ''}
+      <div class="garage-like-btn ${liked?'liked':''}" onclick="toggleSaveGarage('${g.id}', event)">${liked?'♥':'♡'}</div>
       <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').slice(0,3).toUpperCase())}</div></div>
       <div class="info">
         <div class="row1"><div class="name">${esc(g.display_name)}'s Garage</div><div class="dist">${distLabel}</div></div>
@@ -330,24 +358,36 @@ function renderGarageList(){
         <div class="preview">${preview}${more}</div>
       </div>
     </div>`;
-  }).join('');
 }
 
 /* =========================================================
    GARAGE PAGE
 ========================================================= */
-window.openGarage = function(id){
-  const g = nearbyGarages.find(x=>x.id===id);
-  if (!g) return;
+window.openGarage = async function(id){
+  let g = nearbyGarages.find(x=>x.id===id);
+  if (!g) {
+    // Not in the current radius/session cache -- e.g. opened from Liked
+    // Garages while the garage is outside your current radius, or you're
+    // browsing away from home. Fetch it directly instead of giving up.
+    const { data, error } = await supabase.from('garages').select('*, items(*)').eq('id', id).maybeSingle();
+    if (error || !data) { toast('Could not load this garage.'); return; }
+    g = {
+      ...data,
+      items: (data.items || []).filter(it => !it.deleted_at),
+      distance: haversineMeters(myGarage.lat, myGarage.lng, data.lat, data.lng)
+    };
+  }
   currentGarageId = id;
   const c = colorFor(id);
+  const liked = savedGarageIds.has(id);
   document.getElementById('garageHeaderBox').innerHTML = `
     <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').slice(0,3).toUpperCase())}</div></div>
     <div class="who">
       <div class="name">${esc(g.display_name)}'s Garage</div>
-      <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${g.distance!==null ? '· '+(g.distance<15?'in your block':g.distance+'m away') : ''}</div>
+      <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${(g.distance!==null && g.distance!==undefined) ? '· '+(g.distance<15?'in your block':g.distance+'m away') : ''}</div>
       <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
-    </div>`;
+    </div>
+    <div class="garage-header-like ${liked?'liked':''}" onclick="toggleSaveGarage('${id}', event)">${liked?'♥ Liked':'♡ Like this garage'}</div>`;
   const grid = document.getElementById('garageItemGrid');
   const items = g.items || [];
   grid.innerHTML = items.length===0
@@ -468,6 +508,24 @@ async function loadSaved(){
   const { data } = await supabase.from('saved_items').select('item_id').eq('user_id', session.user.id);
   savedItemIds = new Set((data||[]).map(r=>r.item_id));
 }
+async function loadSavedGarages(){
+  const { data } = await supabase.from('saved_garages').select('garage_id').eq('user_id', session.user.id);
+  savedGarageIds = new Set((data||[]).map(r=>r.garage_id));
+}
+window.toggleSaveGarage = async function(garageId, evt){
+  if (evt) evt.stopPropagation();
+  if (savedGarageIds.has(garageId)) {
+    savedGarageIds.delete(garageId);
+    await supabase.from('saved_garages').delete().match({user_id: session.user.id, garage_id: garageId});
+  } else {
+    savedGarageIds.add(garageId);
+    await supabase.from('saved_garages').insert({user_id: session.user.id, garage_id: garageId});
+  }
+  // Refresh whatever's currently visible so the heart state updates immediately.
+  if (currentScreen === 'garage') openGarage(garageId);
+  else if (currentScreen === 'nearby') renderGarageList();
+  else if (currentScreen === 'liked') renderLikedGarages();
+};
 
 /* =========================================================
    CHAT
@@ -872,6 +930,44 @@ window.renderLiked = async function(){
     const gid = row.item.garage_id === session.user.id ? 'mine' : row.item.garage_id;
     return itemCardHtml(row.item, gid, 'liked');
   }).join('');
+};
+
+window.setLikedTab = function(tab){
+  document.getElementById('likedTabItems').classList.toggle('active', tab==='items');
+  document.getElementById('likedTabGarages').classList.toggle('active', tab==='garages');
+  document.getElementById('likedGrid').style.display = tab==='items' ? 'grid' : 'none';
+  document.getElementById('likedGaragesGrid').style.display = tab==='garages' ? 'flex' : 'none';
+  if (tab==='garages') renderLikedGarages();
+};
+
+window.renderLikedGarages = async function(){
+  const box = document.getElementById('likedGaragesGrid');
+  box.innerHTML = `<div class="empty"><div class="glyph">♡</div><p>Loading…</p></div>`;
+
+  const { data, error } = await supabase
+    .from('saved_garages')
+    .select(`
+      garage_id, created_at,
+      garage:garages(id,display_name,block,town,lat,lng,rating,items(*))
+    `)
+    .eq('user_id', session.user.id)
+    .order('created_at', {ascending:false});
+
+  if (error) { box.innerHTML = `<div class="empty"><p>Could not load liked garages.</p></div>`; console.error(error); return; }
+
+  const garages = (data || [])
+    .filter(row => row.garage)
+    .map(row => ({
+      ...row.garage,
+      items: (row.garage.items || []).filter(it => !it.deleted_at),
+      distance: haversineMeters(myGarage.lat, myGarage.lng, row.garage.lat, row.garage.lng)
+    }));
+
+  if (garages.length === 0){
+    box.innerHTML = `<div class="empty"><div class="glyph">♡</div><p>No liked garages yet.<br>Tap the heart on a garage page to save it here — handy for finding your way back even if you're away from home.</p></div>`;
+    return;
+  }
+  box.innerHTML = garages.map(g => garageCardHtml(g)).join('');
 };
 
 /* =========================================================

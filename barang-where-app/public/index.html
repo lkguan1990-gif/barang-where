@@ -71,6 +71,8 @@
         </div>
         <div class="searchbar"><input type="text" id="searchInput" placeholder="Search items or garages…" oninput="renderGarageList()"></div>
         <div class="chips" id="categoryChips"></div>
+        <div class="radius-label">Distance</div>
+        <div class="chips" id="radiusChips"></div>
         <div class="pole-divider"><span id="resultsCount">Loading…</span></div>
         <div class="garage-list" id="garageList"></div>
       </div>
@@ -205,8 +207,13 @@
 
     <!-- LIKED ITEMS -->
     <div class="screen" id="screen-liked">
-      <div class="thread-header"><span class="back" onclick="show('profile')">←</span><span style="font-weight:700; font-size:13px;">LIKED ITEMS</span></div>
+      <div class="thread-header"><span class="back" onclick="show('profile')">←</span><span style="font-weight:700; font-size:13px;">LIKED</span></div>
+      <div class="status-pills" style="margin-top:14px;">
+        <div class="status-pill active" id="likedTabItems" onclick="setLikedTab('items')">Items</div>
+        <div class="status-pill" id="likedTabGarages" onclick="setLikedTab('garages')">Garages</div>
+      </div>
       <div class="item-grid" id="likedGrid" style="margin-top:16px;"></div>
+      <div class="garage-list" id="likedGaragesGrid" style="margin-top:16px; display:none;"></div>
     </div>
 
     <div class="bottomnav">

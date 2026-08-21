@@ -130,6 +130,13 @@
   }
   .searchbar input:focus{outline:2px solid var(--zinc-blue); outline-offset:1px;}
   .chips{display:flex; gap:8px; overflow-x:auto; margin-top:12px; padding-bottom:4px;}
+  .radius-label{font-size:10px; text-transform:uppercase; letter-spacing:0.06em; font-weight:700; color:var(--ink-soft); margin-top:14px;}
+  .garage-like-btn{
+    position:absolute; top:12px; right:12px; width:32px; height:32px; border-radius:50%;
+    background:var(--card); border:1.5px solid var(--ink); display:flex; align-items:center; justify-content:center;
+    font-size:15px; z-index:2; cursor:pointer;
+  }
+  .garage-like-btn.liked{background:var(--hdb-red); color:#fff; border-color:var(--hdb-red);}
   .chip{
     flex:0 0 auto; padding:7px 13px; border-radius:999px; border:1.5px solid var(--ink);
     font-size:12.5px; font-weight:600; cursor:pointer; background:var(--card); white-space:nowrap;
@@ -186,6 +193,11 @@
   .garage-header .name{font-size:19px; font-weight:800;}
   .garage-header .addr{font-size:12.5px; color:var(--ink-soft); margin-top:3px;}
   .garage-header .tagline{font-size:12.5px; color:var(--ink-soft); margin-top:8px; line-height:1.5; font-style:italic;}
+  .garage-header-like{
+    flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; text-transform:uppercase;
+    border:1.5px solid var(--ink); border-radius:8px; padding:8px 10px; cursor:pointer; white-space:nowrap; background:var(--card);
+  }
+  .garage-header-like.liked{background:var(--hdb-red); color:#fff; border-color:var(--hdb-red);}
 
   .item-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;}
   .item-card{
@@ -340,6 +352,7 @@
     border-radius:6px; padding:7px 9px; border:1.5px solid var(--ink); background:var(--terrazzo); color:var(--ink-soft);
     cursor:pointer;
   }
+  .status-pill.active{background:var(--ink); color:var(--terrazzo); border-color:var(--ink);}
   .status-pill.active.available{background:var(--olive); color:#fff; border-color:var(--olive);}
   .status-pill.active.reserved{background:var(--sunny); color:var(--ink); border-color:var(--sunny);}
   .status-pill.active.sold{background:var(--ink); color:var(--terrazzo);}
