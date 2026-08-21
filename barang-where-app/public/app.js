@@ -40,6 +40,7 @@ let activeCategory = "All";
 let currentItemId = null;
 let currentItemCache = null;  // last-opened item detail, so we don't need a refetch for send/save
 let currentGarageId = null;
+let itemDetailFrom = 'nearby';
 let currentConversation = null;
 let realtimeChannel = null;
 let globalMessageChannel = null;
@@ -178,7 +179,7 @@ window.show = function(screen){
   if (el) el.classList.add('active');
   document.querySelectorAll('.navbtn').forEach(b=>b.classList.remove('active'));
   const navMap = {nearby:'nearby', mygarage:'mygarage', additem:'mygarage', chats:'chats', thread:'chats',
-                   profile:'profile', garage:'nearby', item:'nearby', boost:'mygarage', pro:'mygarage'};
+                   profile:'profile', garage:'nearby', item:'nearby', boost:'mygarage', pro:'mygarage', liked:'profile'};
   const navKey = navMap[screen];
   document.querySelectorAll('.navbtn').forEach(b=>{ if (b.dataset.nav===navKey) b.classList.add('active'); });
 
@@ -186,6 +187,7 @@ window.show = function(screen){
   if (screen==='additem') renderAddItemForm();
   if (screen==='chats') renderChats();
   if (screen==='profile') renderProfile();
+  if (screen==='liked') renderLiked();
   if (screen !== 'thread' && realtimeChannel) { supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
   updateChatBadge();
   window.scrollTo(0,0);
@@ -352,10 +354,11 @@ window.openGarage = function(id){
     : items.map(it=>itemCardHtml(it, id)).join('');
   show('garage');
 };
-function itemCardHtml(it, garageId){
+function itemCardHtml(it, garageId, fromScreen){
   const statusClass = it.status.toLowerCase();
+  const from = fromScreen || 'garage';
   return `
-  <div class="item-card" onclick="openItem('${it.id}','${garageId}')">
+  <div class="item-card" onclick="itemDetailFrom='${from}'; openItem('${it.id}','${garageId}')">
     <div class="item-photo" style="background:${colorFor(it.id)}22;">
       ${mediaFill(it)}
       ${it.boosted ? '<div class="boost-tag" style="top:6px; left:6px; right:auto;">🔥</div>' : ''}
@@ -372,7 +375,14 @@ function itemCardHtml(it, garageId){
 /* =========================================================
    ITEM DETAIL
 ========================================================= */
+window.backFromItem = function(){
+  if (itemDetailFrom==='garage' && currentGarageId) openGarage(currentGarageId);
+  else if (itemDetailFrom==='liked') show('liked');
+  else if (itemDetailFrom==='mygarage') show('mygarage');
+  else show('nearby');
+};
 window.openItem = function(itemId, garageId){
+  if (garageId === 'mine') itemDetailFrom = 'mygarage';
   const g = garageId==='mine' ? {id:'mine', ...myGarage} : nearbyGarages.find(x=>x.id===garageId);
   const item = garageId==='mine'
     ? myItems.find(i=>i.id===itemId)
@@ -793,7 +803,6 @@ window.renderProfile = function(){
   document.getElementById('profileBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').slice(0,3).toUpperCase())}</div>`;
   document.getElementById('profileName').textContent = myGarage.display_name;
   document.getElementById('profileAddr').textContent = `Blk ${myGarage.block}, ${myGarage.town}`;
-  document.getElementById('savedCountRow').textContent = savedItemIds.size + ' saved';
 
   const mode = myGarage.location_mode || 'fixed';
   const missing = myGarage.lat === null || myGarage.lat === undefined;
@@ -813,6 +822,32 @@ window.renderProfile = function(){
       : "Your garage shows up wherever you last refreshed your location from.";
     actionBtn.textContent = '📡 Refresh current location';
   }
+};
+
+window.renderLiked = async function(){
+  const box = document.getElementById('likedGrid');
+  box.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="glyph">♡</div><p>Loading…</p></div>`;
+
+  const { data, error } = await supabase
+    .from('saved_items')
+    .select(`
+      item_id, created_at,
+      item:items(id,title,price,photos,category,condition,status,boosted,garage_id)
+    `)
+    .eq('user_id', session.user.id)
+    .order('created_at', {ascending:false});
+
+  if (error) { box.innerHTML = `<div class="empty" style="grid-column:1/-1;"><p>Could not load liked items.</p></div>`; console.error(error); return; }
+
+  const liked = (data || []).filter(row => row.item); // skip rows whose item was deleted
+  if (liked.length === 0){
+    box.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="glyph">♡</div><p>Nothing liked yet.<br>Tap the heart on any item to save it here.</p></div>`;
+    return;
+  }
+  box.innerHTML = liked.map(row => {
+    const gid = row.item.garage_id === session.user.id ? 'mine' : row.item.garage_id;
+    return itemCardHtml(row.item, gid, 'liked');
+  }).join('');
 };
 
 /* =========================================================

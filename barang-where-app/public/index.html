@@ -85,7 +85,7 @@
 
     <!-- ITEM DETAIL -->
     <div class="screen" id="screen-item">
-      <div class="thread-header"><span class="back" onclick="show('nearby')">←</span><span style="font-weight:700; font-size:13px;">ITEM</span></div>
+      <div class="thread-header"><span class="back" onclick="backFromItem()">←</span><span style="font-weight:700; font-size:13px;">ITEM</span></div>
       <div id="itemDetailBox"></div>
     </div>
 
@@ -189,7 +189,7 @@
       </div>
       <div class="profile-list">
         <div class="profile-row"><span>My Garage</span><span class="r" onclick="show('mygarage')" style="cursor:pointer;">Manage →</span></div>
-        <div class="profile-row"><span>Saved items</span><span class="r" id="savedCountRow">0 saved</span></div>
+        <div class="profile-row"><span>Liked items</span><span class="r" onclick="show('liked')" style="cursor:pointer;">View →</span></div>
         <div class="profile-row" id="locationRow" style="flex-direction:column; align-items:stretch; gap:10px;">
           <span style="font-weight:700;">Location</span>
           <div class="status-pills">
@@ -201,6 +201,12 @@
         </div>
         <div class="profile-row"><span>Sign out</span><span class="r" style="cursor:pointer; color:var(--hdb-red); font-weight:700;" onclick="signOut()">Sign out</span></div>
       </div>
+    </div>
+
+    <!-- LIKED ITEMS -->
+    <div class="screen" id="screen-liked">
+      <div class="thread-header"><span class="back" onclick="show('profile')">←</span><span style="font-weight:700; font-size:13px;">LIKED ITEMS</span></div>
+      <div class="item-grid" id="likedGrid" style="margin-top:16px;"></div>
     </div>
 
     <div class="bottomnav">
