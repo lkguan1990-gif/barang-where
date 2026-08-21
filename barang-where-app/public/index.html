@@ -37,12 +37,39 @@
         <input type="text" id="obName" placeholder="e.g. Wei Jie">
       </div>
       <div class="field">
-        <label>Block number</label>
+        <label>Block number / apartment number</label>
         <input type="text" id="obBlock" placeholder="e.g. 302">
       </div>
       <div class="field">
         <label>Town / estate</label>
-        <input type="text" id="obTown" placeholder="e.g. Sengkang">
+        <select id="obTown">
+          <option>Ang Mo Kio</option>
+          <option>Bedok</option>
+          <option>Bishan</option>
+          <option>Bukit Batok</option>
+          <option>Bukit Merah</option>
+          <option>Bukit Panjang</option>
+          <option>Bukit Timah</option>
+          <option>Central Area</option>
+          <option>Choa Chu Kang</option>
+          <option>Clementi</option>
+          <option>Geylang</option>
+          <option>Hougang</option>
+          <option>Jurong East</option>
+          <option>Jurong West</option>
+          <option>Kallang/Whampoa</option>
+          <option>Marine Parade</option>
+          <option>Pasir Ris</option>
+          <option>Punggol</option>
+          <option>Queenstown</option>
+          <option>Sembawang</option>
+          <option selected>Sengkang</option>
+          <option>Serangoon</option>
+          <option>Tampines</option>
+          <option>Toa Payoh</option>
+          <option>Woodlands</option>
+          <option>Yishun</option>
+        </select>
       </div>
       <div class="field-hint" id="obLocStatus">We'll ask your browser for your location next, so neighbours can be sorted by distance. We only ever show your block — never your exact address.</div>
       <button class="btn block red" style="margin-top:16px;" onclick="finishOnboarding()">Set up my garage</button>
@@ -123,13 +150,13 @@
       </div>
       <div id="proBannerSlot"></div>
       <div class="pole-divider"><span>Your listings</span></div>
-      <button class="btn block" id="addItemBtn" onclick="show('additem')">＋ List a new item</button>
+      <button class="btn block" id="addItemBtn" onclick="editingItemId=null; show('additem')">＋ List a new item</button>
       <div id="myItemsList" style="margin-top:14px;"></div>
     </div>
 
     <!-- ADD ITEM -->
     <div class="screen" id="screen-additem">
-      <div class="thread-header"><span class="back" onclick="show('mygarage')">←</span><span style="font-weight:700; font-size:13px;">LIST AN ITEM</span></div>
+      <div class="thread-header"><span class="back" onclick="backFromAddItem()">←</span><span style="font-weight:700; font-size:13px;" id="addItemTitle">LIST AN ITEM</span></div>
       <div class="field">
         <label>Photos <span style="text-transform:none; font-weight:500;">— a real photo helps buyers judge condition</span></label>
         <div class="photo-upload-row" id="photoUploadRow"></div>
@@ -138,13 +165,13 @@
       </div>
       <div class="field"><label>Title</label><input type="text" id="fTitle" placeholder="e.g. Rattan bookshelf, 3-tier"></div>
       <div class="field"><label>Category</label><select id="fCategory"></select></div>
-      <div class="field"><label>Price (SGD)</label><input type="number" id="fPrice" placeholder="e.g. 25" min="0"></div>
+      <div class="field"><label>Price (SGD)</label><input type="number" id="fPrice" placeholder="e.g. 25" min="0" step="0.01"></div>
       <div class="field">
         <label>Condition</label>
         <select id="fCondition"><option>New</option><option selected>Like new</option><option>Good</option><option>Fair</option></select>
       </div>
       <div class="field"><label>Description</label><textarea id="fDesc" placeholder="Tell your neighbours a bit more."></textarea></div>
-      <button class="btn block red" style="margin-top:20px;" onclick="submitItem()">Publish to my garage</button>
+      <button class="btn block red" style="margin-top:20px;" onclick="submitItem()" id="addItemSubmitBtn">Publish to my garage</button>
       <div class="auth-msg" id="itemFormMsg"></div>
     </div>
 
@@ -192,6 +219,50 @@
       <div class="profile-list">
         <div class="profile-row"><span>My Garage</span><span class="r" onclick="show('mygarage')" style="cursor:pointer;">Manage →</span></div>
         <div class="profile-row"><span>Liked items</span><span class="r" onclick="show('liked')" style="cursor:pointer;">View →</span></div>
+        <div class="profile-row" style="flex-direction:column; align-items:stretch; gap:10px;">
+          <span style="font-weight:700;">Garage details</span>
+          <div class="field" style="margin-top:0;">
+            <label>Your name</label>
+            <input type="text" id="editGarageName">
+          </div>
+          <div class="field">
+            <label>Block number / apartment number</label>
+            <input type="text" id="editGarageBlock">
+          </div>
+          <div class="field">
+            <label>Town / estate</label>
+            <select id="editGarageTown">
+              <option>Ang Mo Kio</option>
+              <option>Bedok</option>
+              <option>Bishan</option>
+              <option>Bukit Batok</option>
+              <option>Bukit Merah</option>
+              <option>Bukit Panjang</option>
+              <option>Bukit Timah</option>
+              <option>Central Area</option>
+              <option>Choa Chu Kang</option>
+              <option>Clementi</option>
+              <option>Geylang</option>
+              <option>Hougang</option>
+              <option>Jurong East</option>
+              <option>Jurong West</option>
+              <option>Kallang/Whampoa</option>
+              <option>Marine Parade</option>
+              <option>Pasir Ris</option>
+              <option>Punggol</option>
+              <option>Queenstown</option>
+              <option>Sembawang</option>
+              <option>Sengkang</option>
+              <option>Serangoon</option>
+              <option>Tampines</option>
+              <option>Toa Payoh</option>
+              <option>Woodlands</option>
+              <option>Yishun</option>
+            </select>
+          </div>
+          <button class="btn small" style="align-self:flex-start;" onclick="saveGarageDetails()">Save changes</button>
+          <div class="auth-msg" id="editGarageMsg"></div>
+        </div>
         <div class="profile-row" id="locationRow" style="flex-direction:column; align-items:stretch; gap:10px;">
           <span style="font-weight:700;">Location</span>
           <div class="status-pills">

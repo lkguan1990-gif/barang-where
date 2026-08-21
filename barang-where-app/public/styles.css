@@ -4,6 +4,7 @@
     --ink:#24291F;
     --ink-soft:#5c604f;
     --hdb-red:#C0392B;
+    --price-brown:#6B4226;
     --zinc-blue:#3C6E71;
     --sunny:#E8A93E;
     --olive:#6B7A3D;
@@ -150,13 +151,13 @@
     line-height:1; border:2px solid var(--ink); flex:0 0 auto;
   }
   .block-tile .num{letter-spacing:0.02em;}
-  .block-tile .town{font-family:'IBM Plex Mono',monospace; font-weight:500; letter-spacing:0.02em; text-transform:uppercase; opacity:0.85;}
+  .block-tile .town{font-family:'IBM Plex Mono',monospace; font-weight:500; letter-spacing:0.01em; text-transform:uppercase; opacity:0.85; text-align:center; line-height:1.15; white-space:normal; padding:0 3px; word-break:break-word;}
   .block-tile.sz-list{width:64px;height:64px;}
   .block-tile.sz-list .num{font-size:20px;}
-  .block-tile.sz-list .town{font-size:7px; margin-top:2px;}
+  .block-tile.sz-list .town{font-size:6px; margin-top:2px;}
   .block-tile.sz-hero{width:84px;height:84px;}
   .block-tile.sz-hero .num{font-size:26px;}
-  .block-tile.sz-hero .town{font-size:8px; margin-top:3px;}
+  .block-tile.sz-hero .town{font-size:7px; margin-top:3px;}
   .block-tile.sz-sm{width:40px;height:40px;}
   .block-tile.sz-sm .num{font-size:13px;}
   .block-tile.sz-sm .town{display:none;}
@@ -219,7 +220,7 @@
   .status-tag.sold{background:var(--ink); color:var(--terrazzo);}
   .item-body{padding:9px 10px 11px;}
   .item-title{font-size:12.5px; font-weight:700; line-height:1.3; min-height:32px;}
-  .item-price{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; color:var(--hdb-red); margin-top:5px;}
+  .item-price{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; color:var(--price-brown); margin-top:5px;}
   .item-cond{font-size:10px; color:var(--ink-soft); margin-top:2px; text-transform:uppercase; letter-spacing:0.03em;}
 
   /* ---------- Item detail ---------- */
@@ -270,9 +271,12 @@
   }
   .save-btn.saved{background:var(--hdb-red); color:#fff;}
   .idet-title{font-size:20px; font-weight:800; margin-top:16px; line-height:1.3;}
-  .idet-price{font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:var(--hdb-red); margin-top:6px;}
+  .idet-price{font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:var(--price-brown); margin-top:6px;}
   .idet-badges{display:flex; gap:8px; margin-top:10px;}
   .badge{font-size:11px; font-weight:700; padding:5px 10px; border-radius:999px; border:1.5px solid var(--ink); text-transform:uppercase; letter-spacing:0.02em;}
+  .badge.available{background:var(--olive); color:#fff; border-color:var(--olive);}
+  .badge.reserved{background:var(--sunny); color:var(--ink); border-color:var(--sunny);}
+  .badge.sold{background:var(--ink); color:var(--terrazzo); border-color:var(--ink);}
   .idet-desc{font-size:13.5px; line-height:1.6; color:var(--ink-soft); margin-top:14px;}
   .seller-strip{
     display:flex; align-items:center; gap:10px; margin-top:18px; padding:12px; background:var(--card);
@@ -306,7 +310,7 @@
   }
   .thread-item-strip .ph{font-size:20px; width:34px;height:34px; border-radius:7px; background:var(--terrazzo); display:flex;align-items:center;justify-content:center; overflow:hidden;}
   .thread-item-strip .t{font-size:12px; font-weight:700;}
-  .thread-item-strip .p{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--hdb-red);}
+  .thread-item-strip .p{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--price-brown);}
   .messages{display:flex; flex-direction:column; gap:8px; min-height:120px; padding:6px 0 12px;}
   .msg{max-width:78%; padding:9px 12px; border-radius:12px; font-size:13.5px; line-height:1.45; border:1.5px solid var(--ink);}
   .msg.me{align-self:flex-end; background:var(--sunny); border-bottom-right-radius:3px;}
@@ -343,7 +347,7 @@
   .my-item-row .ph{font-size:24px; width:48px;height:48px; border-radius:9px; background:var(--terrazzo); display:flex;align-items:center;justify-content:center; flex:0 0 auto; overflow:hidden;}
   .my-item-row .body{flex:1; min-width:0;}
   .my-item-row .t{font-weight:700; font-size:13px;}
-  .my-item-row .p{font-family:'IBM Plex Mono',monospace; color:var(--hdb-red); font-size:12.5px; margin-top:2px;}
+  .my-item-row .p{font-family:'IBM Plex Mono',monospace; color:var(--price-brown); font-size:12.5px; margin-top:2px;}
   .my-item-row .row-bottom{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
     margin-top:10px; padding-top:10px; border-top:1.5px dashed rgba(36,41,31,0.2);

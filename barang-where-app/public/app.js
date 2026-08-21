@@ -47,6 +47,7 @@ let globalMessageChannel = null;
 let currentScreen = 'nearby';
 let unreadConversationIds = new Set();
 let boostingItemId = null;
+let editingItemId = null;
 let selectedBoostOption = 0;
 let formPhotos = [];
 let savedItemIds = new Set();
@@ -320,12 +321,14 @@ function renderGarageList(){
     const items = g.items || [];
     const name = (g.display_name || '').toLowerCase();
     const block = (g.block || '').toLowerCase();
+    const town = (g.town || '').toLowerCase();
     const matchesCat = activeCategory==="All" || items.some(it=>it.category===activeCategory);
-    const matchesQ = !q || name.includes(q) || block.includes(q)
+    const matchesQ = !q || name.includes(q) || block.includes(q) || town.includes(q)
       || items.some(it => (it.title||'').toLowerCase().includes(q) || (it.category||'').toLowerCase().includes(q));
     const hasLocation = g.distance !== null && g.distance !== undefined;
     const withinRadius = radiusKm === null ? true : (hasLocation && g.distance <= radiusKm*1000);
-    return matchesCat && matchesQ && withinRadius && items.length > 0;
+    const hasAvailableItems = items.some(it=>it.status!=='Sold');
+    return matchesCat && matchesQ && withinRadius && hasAvailableItems;
   });
   const radiusLabel = radiusKm === null ? 'any distance' : (radiusKm < 1 ? (radiusKm*1000)+'m' : radiusKm+'km');
   document.getElementById('resultsCount').textContent = `${filtered.length} garage${filtered.length===1?'':'s'} within ${radiusLabel}`;
@@ -334,7 +337,7 @@ function renderGarageList(){
     const reason = nearbyGarages.length===0
       ? 'Nearby listings will appear here as neighbours add items.'
       : 'Try a wider radius, a different search, or another category.';
-    box.innerHTML = `<div class="empty"><div class="glyph">🕳️</div><p>No garages match yet.<br>${reason}</p></div>`;
+    box.innerHTML = `<div class="empty"><p>No garages match yet.<br>${reason}</p></div>`;
     return;
   }
   box.innerHTML = filtered.map(g=>garageCardHtml(g)).join('');
@@ -351,7 +354,7 @@ function garageCardHtml(g){
     <div class="garage-card" style="position:relative;" onclick="openGarage('${g.id}')">
       ${isBoosted ? '<div class="boost-tag">🔥 Boosted</div>' : ''}
       <div class="garage-like-btn ${liked?'liked':''}" onclick="toggleSaveGarage('${g.id}', event)">${liked?'♥':'♡'}</div>
-      <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').slice(0,3).toUpperCase())}</div></div>
+      <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="info">
         <div class="row1"><div class="name">${esc(g.display_name)}'s Garage</div><div class="dist">${distLabel}</div></div>
         <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
@@ -382,7 +385,7 @@ window.openGarage = async function(id){
   const liked = savedGarageIds.has(id);
   document.getElementById('garageHeaderBox').innerHTML = `
     <div class="garage-header-top">
-      <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').slice(0,3).toUpperCase())}</div></div>
+      <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="who">
         <div class="name">${esc(g.display_name)}'s Garage</div>
         <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${(g.distance!==null && g.distance!==undefined) ? '· '+(g.distance<15?'in your block':g.distance+'m away') : ''}</div>
@@ -409,7 +412,7 @@ function itemCardHtml(it, garageId, fromScreen){
     </div>
     <div class="item-body">
       <div class="item-title">${esc(it.title)}</div>
-      <div class="item-price">$${it.price}</div>
+      <div class="item-price">$${Number(it.price).toFixed(2)}</div>
       <div class="item-cond">${esc(it.condition)}</div>
     </div>
   </div>`;
@@ -448,24 +451,25 @@ window.openItem = function(itemId, garageId){
   document.getElementById('itemDetailBox').innerHTML = `
     <div class="item-detail-photo" style="background:${c}22;">
       ${mainMedia}
-      <div class="save-btn ${saved?'saved':''}" onclick="toggleSave('${itemId}', event)">${saved?'♥':'♡'}</div>
+      ${isMine ? '' : `<div class="save-btn ${saved?'saved':''}" onclick="toggleSave('${itemId}', event)">${saved?'♥':'♡'}</div>`}
       ${dots}
     </div>
     <div class="idet-title">${esc(item.title)}</div>
-    <div class="idet-price">$${item.price}</div>
+    <div class="idet-price">$${Number(item.price).toFixed(2)}</div>
     <div class="idet-badges">
       <div class="badge">${esc(item.condition)}</div>
       <div class="badge">${esc(item.category)}</div>
-      <div class="badge">${item.status}</div>
+      <div class="badge ${item.status.toLowerCase()}">${item.status}</div>
     </div>
     <div class="idet-desc">${esc(item.description)}</div>
-    <div class="seller-strip" onclick="${isMine ? "show('mygarage')" : `openGarage('${g.id}')`}">
+    ${isMine ? '' : `
+    <div class="seller-strip" onclick="openGarage('${g.id}')">
       <div class="block-tile sz-sm" style="background:${c};"><div class="num">${esc(g.block)}</div></div>
-      <div><div class="name">${esc(g.display_name)}${isMine?' (you)':"'s Garage"}</div><div class="addr">Blk ${esc(g.block)}, ${esc(g.town)}</div></div>
-    </div>
+      <div><div class="name">${esc(g.display_name)}'s Garage</div><div class="addr">Blk ${esc(g.block)}, ${esc(g.town)}</div></div>
+    </div>`}
     <div class="action-row">
       ${isMine
-        ? `<button class="btn block ghost" disabled>This is your listing</button>`
+        ? `<button class="btn block ghost" onclick="openEditItem('${itemId}')">✏️ Edit this listing</button>`
         : `<button class="btn block red" onclick="startChat('${itemId}','${g.id}')">💬 Message ${esc(g.display_name)}</button>`}
     </div>`;
   show('item');
@@ -565,7 +569,7 @@ async function openThread(convoId){
   document.getElementById('threadWho').textContent = (otherParty?.display_name || 'Chat').toUpperCase();
   document.getElementById('threadItemStrip').innerHTML = `
     <div class="ph">${mediaFill(convo.item)}</div>
-    <div><div class="t">${esc(convo.item.title)}</div><div class="p">${convo.item.deleted_at ? '<span style="color:var(--ink-soft); font-weight:600;">Listing removed</span>' : '$'+convo.item.price}</div></div>`;
+    <div><div class="t">${esc(convo.item.title)}</div><div class="p">${convo.item.deleted_at ? '<span style="color:var(--ink-soft); font-weight:600;">Listing removed</span>' : '$'+Number(convo.item.price).toFixed(2)}</div></div>`;
 
   await loadMessages(convoId);
   subscribeToThread(convoId);
@@ -625,7 +629,13 @@ window.renderChats = async function(){
     box.innerHTML = `<div class="empty"><div class="glyph">💬</div><p>No conversations yet.<br>Message a seller from any item page to start chatting.</p></div>`;
     return;
   }
-  box.innerHTML = data.map(c=>{
+  const sorted = data.slice().sort((a,b)=>{
+    const aMsgs = a.messages || [], bMsgs = b.messages || [];
+    const aTime = aMsgs.length ? new Date(aMsgs[aMsgs.length-1].created_at).getTime() : 0;
+    const bTime = bMsgs.length ? new Date(bMsgs[bMsgs.length-1].created_at).getTime() : 0;
+    return bTime - aTime;
+  });
+  box.innerHTML = sorted.map(c=>{
     const otherParty = c.buyer_id === session.user.id ? c.seller : c.buyer;
     const msgs = c.messages || [];
     const last = msgs[msgs.length-1];
@@ -635,7 +645,7 @@ window.renderChats = async function(){
       <div class="convo-thumb">${mediaFill(c.item)}</div>
       <div class="convo-info">
         <div class="convo-name">${esc(otherParty?.display_name || 'Neighbour')}</div>
-        <div class="convo-item">${esc(c.item.title)} · ${c.item.deleted_at ? 'Listing removed' : '$'+c.item.price}</div>
+        <div class="convo-item">${esc(c.item.title)} · ${c.item.deleted_at ? 'Listing removed' : '$'+Number(c.item.price).toFixed(2)}</div>
         <div class="convo-last">${last ? (last.sender_id===session.user.id?'You: ':'') + esc(last.body) : 'Say hi 👋'}</div>
       </div>
       ${isUnread ? '<div class="unread-dot"></div>' : ''}
@@ -654,7 +664,7 @@ async function loadMyItems(){
   myItems = data || [];
 }
 window.renderMyGarage = function(){
-  document.getElementById('myBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').slice(0,3).toUpperCase())}</div>`;
+  document.getElementById('myBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').toUpperCase())}</div>`;
   document.getElementById('myAddrLine').textContent = `Blk ${myGarage.block}, ${myGarage.town}`;
   document.getElementById('myItemCount').textContent = myItems.filter(i=>i.status!=='Sold').length;
   document.getElementById('mySoldCount').textContent = myItems.filter(i=>i.status==='Sold').length;
@@ -687,7 +697,7 @@ window.renderMyGarage = function(){
         <div class="row-top">
           <div class="ph" onclick="openItem('${it.id}','mine')">${mediaFill(it)}</div>
           <div class="body" onclick="openItem('${it.id}','mine')">
-            <div class="t">${esc(it.title)}</div><div class="p">$${it.price}</div>
+            <div class="t">${esc(it.title)}</div><div class="p">$${Number(it.price).toFixed(2)}</div>
           </div>
           <div class="del-x" onclick="deleteItem('${it.id}')">✕</div>
         </div>
@@ -706,6 +716,24 @@ window.renderMyGarage = function(){
 window.saveTagline = async function(value){
   myGarage.tagline = value;
   await supabase.from('garages').update({tagline: value}).eq('id', session.user.id);
+};
+window.saveGarageDetails = async function(){
+  const display_name = document.getElementById('editGarageName').value.trim();
+  const block = document.getElementById('editGarageBlock').value.trim();
+  const town = document.getElementById('editGarageTown').value;
+  const msg = document.getElementById('editGarageMsg');
+  if (!display_name || !block) { msg.className='auth-msg error'; msg.textContent='Name and block are both required.'; return; }
+
+  msg.className = 'auth-msg'; msg.textContent = 'Saving…';
+  const { error } = await supabase.from('garages').update({ display_name, block, town }).eq('id', session.user.id);
+  if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
+
+  myGarage.display_name = display_name;
+  myGarage.block = block;
+  myGarage.town = town;
+  msg.className = 'auth-msg ok'; msg.textContent = '✓ Saved!';
+  renderProfile();
+  toast('Garage details updated');
 };
 window.setStatus = async function(itemId, status){
   const it = myItems.find(i=>i.id===itemId);
@@ -745,17 +773,44 @@ window.deleteItem = async function(itemId){
 };
 
 /* =========================================================
-   ADD ITEM (with real photo upload to Supabase Storage)
+   ADD / EDIT ITEM (with real photo upload to Supabase Storage)
 ========================================================= */
 function photoCap(){ return myGarage.is_pro ? 3 : 1; }
+window.openEditItem = function(itemId){
+  editingItemId = itemId;
+  show('additem');
+};
+window.backFromAddItem = function(){
+  const wasEditing = !!editingItemId;
+  editingItemId = null;
+  if (wasEditing && currentItemId) {
+    openItem(currentItemId, 'mine');
+  } else {
+    show('mygarage');
+  }
+};
 window.renderAddItemForm = function(){
-  document.getElementById('fTitle').value='';
-  document.getElementById('fPrice').value='';
-  document.getElementById('fDesc').value='';
-  document.getElementById('fCondition').value='Like new';
   document.getElementById('itemFormMsg').textContent='';
   formPhotos = [];
   document.getElementById('fCategory').innerHTML = CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+
+  const editing = editingItemId ? myItems.find(i=>i.id===editingItemId) : null;
+  document.getElementById('addItemTitle').textContent = editing ? 'EDIT LISTING' : 'LIST AN ITEM';
+  document.getElementById('addItemSubmitBtn').textContent = editing ? 'Save changes' : 'Publish to my garage';
+
+  if (editing) {
+    document.getElementById('fTitle').value = editing.title;
+    document.getElementById('fPrice').value = editing.price;
+    document.getElementById('fCategory').value = editing.category;
+    document.getElementById('fCondition').value = editing.condition;
+    document.getElementById('fDesc').value = editing.description || '';
+    formPhotos = (editing.photos || []).map(url => ({ existingUrl: url, previewUrl: url }));
+  } else {
+    document.getElementById('fTitle').value='';
+    document.getElementById('fPrice').value='';
+    document.getElementById('fDesc').value='';
+    document.getElementById('fCondition').value='Like new';
+  }
   renderPhotoUploadRow();
 };
 function renderPhotoUploadRow(){
@@ -784,15 +839,66 @@ window.handlePhotoFile = function(input){
 };
 window.removePhoto = function(i){ formPhotos.splice(i,1); renderPhotoUploadRow(); };
 
+function extractStoragePath(url){
+  const marker = '/item-photos/';
+  const i = url.indexOf(marker);
+  return i === -1 ? null : url.slice(i + marker.length);
+}
+
 window.submitItem = async function(){
   const title = document.getElementById('fTitle').value.trim();
-  const price = parseFloat(document.getElementById('fPrice').value);
+  const rawPrice = parseFloat(document.getElementById('fPrice').value);
+  const price = isNaN(rawPrice) ? rawPrice : Math.round(rawPrice * 100) / 100;
   const category = document.getElementById('fCategory').value;
   const condition = document.getElementById('fCondition').value;
   const description = document.getElementById('fDesc').value.trim();
   const msg = document.getElementById('itemFormMsg');
 
   if (!title || isNaN(price)) { msg.className='auth-msg error'; msg.textContent='Please add at least a title and price.'; return; }
+
+  if (editingItemId) {
+    // ---------- EDIT existing item ----------
+    msg.className = 'auth-msg'; msg.textContent = 'Saving…';
+    const original = myItems.find(i=>i.id===editingItemId);
+    const keptUrls = formPhotos.filter(p=>p.existingUrl).map(p=>p.existingUrl);
+    const removedUrls = (original.photos || []).filter(url => !keptUrls.includes(url));
+    const newFiles = formPhotos.filter(p=>p.file);
+
+    // Delete any removed photo files from storage.
+    const removedPaths = removedUrls.map(extractStoragePath).filter(Boolean);
+    if (removedPaths.length) {
+      const { error: rmErr } = await supabase.storage.from('item-photos').remove(removedPaths);
+      if (rmErr) console.error('Could not remove old photo files:', rmErr);
+    }
+
+    // Upload any newly added photos.
+    const newUrls = [];
+    for (const p of newFiles) {
+      const ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${session.user.id}/${editingItemId}-${Date.now()}-${newUrls.length}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('item-photos').upload(path, p.file, {
+        cacheControl: '3600', upsert: false, contentType: p.file.type
+      });
+      if (upErr) { console.error(upErr); continue; }
+      const { data: pub } = supabase.storage.from('item-photos').getPublicUrl(path);
+      newUrls.push(pub.publicUrl);
+    }
+
+    const finalPhotos = [...keptUrls, ...newUrls];
+    const { error } = await supabase.from('items').update({
+      title, price, category, condition, description, photos: finalPhotos
+    }).eq('id', editingItemId);
+    if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
+
+    Object.assign(original, { title, price, category, condition, description, photos: finalPhotos });
+    const savedId = editingItemId;
+    editingItemId = null;
+    toast('Changes saved!');
+    openItem(savedId, 'mine');
+    return;
+  }
+
+  // ---------- CREATE new item ----------
   msg.className = 'auth-msg'; msg.textContent = 'Publishing…';
 
   // 1. Insert the item row first so we have an id to namespace photo paths.
@@ -833,7 +939,7 @@ window.openBoost = function(itemId){
   selectedBoostOption = 0;
   const it = myItems.find(i=>i.id===itemId);
   document.getElementById('boostItemStrip').innerHTML = `
-    <div class="ph">${mediaFill(it)}</div><div><div class="t">${esc(it.title)}</div><div class="p">$${it.price}</div></div>`;
+    <div class="ph">${mediaFill(it)}</div><div><div class="t">${esc(it.title)}</div><div class="p">$${Number(it.price).toFixed(2)}</div></div>`;
   renderBoostOptions();
   show('boost');
 };
@@ -887,9 +993,14 @@ window.confirmPro = async function(){
    PROFILE
 ========================================================= */
 window.renderProfile = function(){
-  document.getElementById('profileBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').slice(0,3).toUpperCase())}</div>`;
+  document.getElementById('profileBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').toUpperCase())}</div>`;
   document.getElementById('profileName').textContent = myGarage.display_name;
   document.getElementById('profileAddr').textContent = `Blk ${myGarage.block}, ${myGarage.town}`;
+
+  document.getElementById('editGarageName').value = myGarage.display_name || '';
+  document.getElementById('editGarageBlock').value = myGarage.block || '';
+  document.getElementById('editGarageTown').value = myGarage.town || 'Sengkang';
+  document.getElementById('editGarageMsg').textContent = '';
 
   const mode = myGarage.location_mode || 'fixed';
   const missing = myGarage.lat === null || myGarage.lat === undefined;
