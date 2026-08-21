@@ -17,10 +17,17 @@ const supabase = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 /* =========================================================
    CONSTANTS
 ========================================================= */
-const CATEGORIES = ["Furniture","Electronics","Baby & Kids","Books","Clothing","Kitchen","Toys","Sports","Others"];
+const CATEGORIES = [
+  "Furniture","Electronics","Appliances","Baby & Kids","Books & Stationery",
+  "Clothing","Footwear & Bags","Kitchen & Dining","Toys & Games","Sports & Fitness",
+  "Beauty & Personal Care","Home & Living","Tools & Hardware","Pet Supplies",
+  "Garden & Outdoor","Music & Hobbies","Art & Collectibles","Others"
+];
 const CATEGORY_EMOJI = {
-  "Furniture":"🛋️","Electronics":"📺","Baby & Kids":"🍼","Books":"📚",
-  "Clothing":"👕","Kitchen":"🍳","Toys":"🧸","Sports":"🏸","Others":"📦"
+  "Furniture":"🛋️","Electronics":"📺","Appliances":"🔌","Baby & Kids":"🍼","Books & Stationery":"📚",
+  "Clothing":"👕","Footwear & Bags":"👜","Kitchen & Dining":"🍳","Toys & Games":"🧸","Sports & Fitness":"🏸",
+  "Beauty & Personal Care":"💄","Home & Living":"🖼️","Tools & Hardware":"🔧","Pet Supplies":"🐾",
+  "Garden & Outdoor":"🪴","Music & Hobbies":"🎸","Art & Collectibles":"🎨","Others":"📦"
 };
 const PALETTE = ["#C0392B","#3C6E71","#E8A93E","#4C6B8A","#7C5C3E","#6B7A3D"];
 const BOOST_OPTIONS = [
@@ -50,6 +57,7 @@ let boostingItemId = null;
 let editingItemId = null;
 let selectedBoostOption = 0;
 let formPhotos = [];
+let formCategories = [];
 let savedItemIds = new Set();
 let savedGarageIds = new Set();
 let radiusKm = 1; // default 1km; null means "Any distance"
@@ -58,6 +66,10 @@ const RADIUS_OPTIONS = [1, 3, null]; // null = "Any"
 /* =========================================================
    HELPERS
 ========================================================= */
+function sameBlock(g){
+  return (g.block||'').trim().toLowerCase() === (myGarage.block||'').trim().toLowerCase()
+      && (g.town||'').trim().toLowerCase() === (myGarage.town||'').trim().toLowerCase();
+}
 function colorFor(id){
   let h = 0;
   for (const c of String(id)) h = (h*31 + c.charCodeAt(0)) % PALETTE.length;
@@ -67,7 +79,7 @@ function mediaFill(item){
   if (item.photos && item.photos.length) {
     return `<img src="${item.photos[0]}" style="width:100%;height:100%;object-fit:cover;display:block;">`;
   }
-  return CATEGORY_EMOJI[item.category] || "📦";
+  return CATEGORY_EMOJI[(item.categories||[])[0]] || "📦";
 }
 function haversineMeters(lat1, lng1, lat2, lng2){
   if ([lat1,lng1,lat2,lng2].some(v => v === null || v === undefined)) return null;
@@ -322,9 +334,9 @@ function renderGarageList(){
     const name = (g.display_name || '').toLowerCase();
     const block = (g.block || '').toLowerCase();
     const town = (g.town || '').toLowerCase();
-    const matchesCat = activeCategory==="All" || items.some(it=>it.category===activeCategory);
+    const matchesCat = activeCategory==="All" || items.some(it=>(it.categories||[]).includes(activeCategory));
     const matchesQ = !q || name.includes(q) || block.includes(q) || town.includes(q)
-      || items.some(it => (it.title||'').toLowerCase().includes(q) || (it.category||'').toLowerCase().includes(q));
+      || items.some(it => (it.title||'').toLowerCase().includes(q) || (it.categories||[]).some(cat=>cat.toLowerCase().includes(q)));
     const hasLocation = g.distance !== null && g.distance !== undefined;
     const withinRadius = radiusKm === null ? true : (hasLocation && g.distance <= radiusKm*1000);
     const hasAvailableItems = items.some(it=>it.status!=='Sold');
@@ -344,11 +356,11 @@ function renderGarageList(){
 }
 function garageCardHtml(g){
   const c = colorFor(g.id);
-  const items = (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || it.category===activeCategory));
+  const items = (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || (it.categories||[]).includes(activeCategory)));
   const preview = items.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${it.boosted?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
   const more = (g.items||[]).length>4 ? `<div class="mini-item more">+${g.items.length-4}</div>` : '';
   const isBoosted = (g.items||[]).some(i=>i.boosted);
-  const distLabel = (g.distance===null || g.distance===undefined) ? '—' : (g.distance < 15 ? 'IN YOUR BLOCK' : g.distance+'m');
+  const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : g.distance+'m');
   const liked = savedGarageIds.has(g.id);
   return `
     <div class="garage-card" style="position:relative;" onclick="openGarage('${g.id}')">
@@ -388,7 +400,7 @@ window.openGarage = async function(id){
       <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="who">
         <div class="name">${esc(g.display_name)}'s Garage</div>
-        <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${(g.distance!==null && g.distance!==undefined) ? '· '+(g.distance<15?'in your block':g.distance+'m away') : ''}</div>
+        <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${sameBlock(g) ? '· in your block' : ((g.distance!==null && g.distance!==undefined) ? '· '+g.distance+'m away' : '')}</div>
         <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
       </div>
     </div>
@@ -458,7 +470,7 @@ window.openItem = function(itemId, garageId){
     <div class="idet-price">$${Number(item.price).toFixed(2)}</div>
     <div class="idet-badges">
       <div class="badge">${esc(item.condition)}</div>
-      <div class="badge">${esc(item.category)}</div>
+      ${(item.categories||[]).map(cat=>`<div class="badge">${esc(cat)}</div>`).join('')}
       <div class="badge ${item.status.toLowerCase()}">${item.status}</div>
     </div>
     <div class="idet-desc">${esc(item.description)}</div>
@@ -555,7 +567,7 @@ async function openThread(convoId){
     .from('conversations')
     .select(`
       id, item_id, buyer_id, seller_id,
-      item:items(id,title,price,photos,category,deleted_at),
+      item:items(id,title,price,photos,categories,deleted_at),
       buyer:garages!conversations_buyer_id_fkey(id,display_name,block),
       seller:garages!conversations_seller_id_fkey(id,display_name,block)
     `)
@@ -792,7 +804,6 @@ window.backFromAddItem = function(){
 window.renderAddItemForm = function(){
   document.getElementById('itemFormMsg').textContent='';
   formPhotos = [];
-  document.getElementById('fCategory').innerHTML = CATEGORIES.map(c=>`<option>${c}</option>`).join('');
 
   const editing = editingItemId ? myItems.find(i=>i.id===editingItemId) : null;
   document.getElementById('addItemTitle').textContent = editing ? 'EDIT LISTING' : 'LIST AN ITEM';
@@ -801,7 +812,7 @@ window.renderAddItemForm = function(){
   if (editing) {
     document.getElementById('fTitle').value = editing.title;
     document.getElementById('fPrice').value = editing.price;
-    document.getElementById('fCategory').value = editing.category;
+    formCategories = [...(editing.categories || [])];
     document.getElementById('fCondition').value = editing.condition;
     document.getElementById('fDesc').value = editing.description || '';
     formPhotos = (editing.photos || []).map(url => ({ existingUrl: url, previewUrl: url }));
@@ -810,8 +821,21 @@ window.renderAddItemForm = function(){
     document.getElementById('fPrice').value='';
     document.getElementById('fDesc').value='';
     document.getElementById('fCondition').value='Like new';
+    formCategories = [];
   }
+  buildFCategoryChips();
   renderPhotoUploadRow();
+};
+function buildFCategoryChips(){
+  const box = document.getElementById('fCategoryChips');
+  box.innerHTML = CATEGORIES.map(c =>
+    `<div class="chip ${formCategories.includes(c)?'active':''}" onclick="toggleFCategory('${c.replace(/'/g,"\\'")}')">${c}</div>`
+  ).join('');
+}
+window.toggleFCategory = function(cat){
+  const i = formCategories.indexOf(cat);
+  if (i === -1) formCategories.push(cat); else formCategories.splice(i,1);
+  buildFCategoryChips();
 };
 function renderPhotoUploadRow(){
   const row = document.getElementById('photoUploadRow');
@@ -849,12 +873,13 @@ window.submitItem = async function(){
   const title = document.getElementById('fTitle').value.trim();
   const rawPrice = parseFloat(document.getElementById('fPrice').value);
   const price = isNaN(rawPrice) ? rawPrice : Math.round(rawPrice * 100) / 100;
-  const category = document.getElementById('fCategory').value;
+  const categories = [...formCategories];
   const condition = document.getElementById('fCondition').value;
   const description = document.getElementById('fDesc').value.trim();
   const msg = document.getElementById('itemFormMsg');
 
   if (!title || isNaN(price)) { msg.className='auth-msg error'; msg.textContent='Please add at least a title and price.'; return; }
+  if (categories.length === 0) { msg.className='auth-msg error'; msg.textContent='Pick at least one category.'; return; }
 
   if (editingItemId) {
     // ---------- EDIT existing item ----------
@@ -886,11 +911,11 @@ window.submitItem = async function(){
 
     const finalPhotos = [...keptUrls, ...newUrls];
     const { error } = await supabase.from('items').update({
-      title, price, category, condition, description, photos: finalPhotos
+      title, price, categories, condition, description, photos: finalPhotos
     }).eq('id', editingItemId);
     if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
 
-    Object.assign(original, { title, price, category, condition, description, photos: finalPhotos });
+    Object.assign(original, { title, price, categories, condition, description, photos: finalPhotos });
     const savedId = editingItemId;
     editingItemId = null;
     toast('Changes saved!');
@@ -903,7 +928,7 @@ window.submitItem = async function(){
 
   // 1. Insert the item row first so we have an id to namespace photo paths.
   const { data: item, error: insertErr } = await supabase.from('items').insert({
-    garage_id: session.user.id, title, price, category, condition, description, photos: []
+    garage_id: session.user.id, title, price, categories, condition, description, photos: []
   }).select().single();
   if (insertErr) { msg.className='auth-msg error'; msg.textContent = insertErr.message; return; }
 
@@ -1030,7 +1055,7 @@ window.renderLiked = async function(){
     .from('saved_items')
     .select(`
       item_id, created_at,
-      item:items(id,title,price,photos,category,condition,status,boosted,garage_id,deleted_at)
+      item:items(id,title,price,photos,categories,condition,status,boosted,garage_id,deleted_at)
     `)
     .eq('user_id', session.user.id)
     .order('created_at', {ascending:false});

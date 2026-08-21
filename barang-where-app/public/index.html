@@ -164,7 +164,10 @@
         <div class="field-hint" id="photoHint"></div>
       </div>
       <div class="field"><label>Title</label><input type="text" id="fTitle" placeholder="e.g. Rattan bookshelf, 3-tier"></div>
-      <div class="field"><label>Category</label><select id="fCategory"></select></div>
+      <div class="field">
+        <label>Category <span style="text-transform:none; font-weight:500;">— select all that apply, not sure? pick a couple</span></label>
+        <div class="chips chips-wrap" id="fCategoryChips"></div>
+      </div>
       <div class="field"><label>Price (SGD)</label><input type="number" id="fPrice" placeholder="e.g. 25" min="0" step="0.01"></div>
       <div class="field">
         <label>Condition</label>

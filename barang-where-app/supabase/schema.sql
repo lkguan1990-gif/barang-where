@@ -48,7 +48,7 @@ create table public.items (
   garage_id          uuid not null references public.garages(id) on delete cascade,
   title              text not null,
   price              numeric not null check (price >= 0),
-  category           text not null,
+  categories         text[] not null default '{}',   -- an item can belong to more than one category
   condition          text not null,
   description        text default '',
   photos             text[] not null default '{}',   -- public URLs in the item-photos bucket
