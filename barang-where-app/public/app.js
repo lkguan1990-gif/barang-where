@@ -158,7 +158,7 @@ window.sendSignInCode = async function(){
   });
   if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
   msg.className = 'auth-msg ok';
-  msg.textContent = '✓ Check your email for your 6-digit code, then enter it below.';
+  msg.textContent = '✓ Check your email for your sign-in code, then enter it below.';
   document.getElementById('otpCodeSection').style.display = 'block';
 };
 window.verifyOtpCode = async function(){
@@ -166,7 +166,7 @@ window.verifyOtpCode = async function(){
   const token = document.getElementById('otpCodeInput').value.trim();
   const msg = document.getElementById('authMsg');
   if (!email) { msg.className='auth-msg error'; msg.textContent='Enter your email first.'; return; }
-  if (!token) { msg.className='auth-msg error'; msg.textContent='Enter the 6-digit code from your email.'; return; }
+  if (!token) { msg.className='auth-msg error'; msg.textContent='Enter the code from your email.'; return; }
   msg.className = 'auth-msg'; msg.textContent = 'Verifying…';
   const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
   if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
