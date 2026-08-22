@@ -48,12 +48,13 @@ which is fine for testing but rate-limited and not meant for production.
 - For testing: it works out of the box, no setup needed.
 - For real use: go to **Authentication → Providers → Email** and, when
   you're ready, **Project Settings → Auth → SMTP Settings** to connect
-  your own email sender (e.g. Resend, Postmark) so magic links are
+  your own email sender (e.g. Resend, Postmark) so sign-in codes are
   reliable at real volume.
 
 Also set **Authentication → URL Configuration → Site URL** to whatever
-domain you deploy the app to in step 4 — this is where magic links will
-redirect back to.
+domain you deploy the app to in step 4 — this is a general Supabase Auth
+setting worth keeping accurate even though this app's sign-in flow (a
+6-digit code, not a clickable link) doesn't depend on it directly.
 
 ## 4. Deploy the frontend, the proper way (GitHub + Cloudflare Pages)
 
@@ -123,8 +124,9 @@ automatically.
 Go back to **Authentication → URL Configuration** in Supabase (see step 3
 above) and update **Site URL** and **Redirect URLs** to your real domain
 — not the `*.pages.dev` one, if you've attached a custom domain, and
-definitely not `localhost`. This is the step that's easy to forget and
-causes magic links to redirect somewhere dead.
+definitely not `localhost`. This is a general Supabase Auth hygiene step,
+though it no longer directly affects sign-in itself, since the app uses
+a 6-digit email code rather than a clickable link.
 
 <details>
 <summary>Prefer to skip GitHub and just drag-and-drop? (click to expand)</summary>
@@ -139,8 +141,9 @@ just need to re-upload manually for every future change, instead of
 ## 5. Try it
 
 1. Open your deployed URL, enter your email, and check your inbox for
-   the magic link.
-2. Click it — you'll land back in the app, signed in.
+   your 6-digit sign-in code.
+2. Enter it in the app — you'll be signed in immediately, no need to
+   leave the page.
 3. Fill in your name, block, and town. Allow location when prompted
    (this is what powers "sort by distance" — we round it to ~100m
    before saving, so no one gets your exact doorstep).

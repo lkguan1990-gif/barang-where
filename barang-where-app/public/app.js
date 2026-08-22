@@ -148,7 +148,7 @@ async function route(){
   show('nearby');
 }
 
-window.sendMagicLink = async function(){
+window.sendSignInCode = async function(){
   const email = document.getElementById('authEmail').value.trim();
   const msg = document.getElementById('authMsg');
   if (!email) { msg.className='auth-msg error'; msg.textContent='Enter your email first.'; return; }
@@ -158,7 +158,7 @@ window.sendMagicLink = async function(){
   });
   if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
   msg.className = 'auth-msg ok';
-  msg.textContent = '✓ Check your email for the magic link, then come back to this tab.';
+  msg.textContent = '✓ Check your email for your 6-digit code, then enter it below.';
   document.getElementById('otpCodeSection').style.display = 'block';
 };
 window.verifyOtpCode = async function(){
