@@ -696,7 +696,7 @@ window.renderChats = async function(){
       <div class="convo-thumb">${mediaFill(c.item)}</div>
       <div class="convo-info">
         <div class="convo-name">${esc(otherParty?.display_name || 'Neighbour')}</div>
-        <div class="convo-item">${esc(c.item.title)} · ${c.item.deleted_at ? 'Listing removed' : '$'+Number(c.item.price).toFixed(2)}</div>
+        <div class="convo-item">${esc(c.item.title)} · ${c.item.deleted_at ? '<span style="color:var(--ink-soft); font-weight:600;">Listing removed</span>' : '<span class="convo-price">$'+Number(c.item.price).toFixed(2)+'</span>'}</div>
         <div class="convo-last">${last ? (last.sender_id===session.user.id?'You: ':'') + esc(last.body) : 'Say hi 👋'}</div>
       </div>
       ${isUnread ? '<div class="unread-dot"></div>' : ''}
