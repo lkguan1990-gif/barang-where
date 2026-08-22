@@ -3,8 +3,14 @@
 // TWA/Play Store) and basic offline resilience, without trying to cache
 // live Supabase data (that would go stale immediately and isn't the point
 // here — the goal is "the app shell loads even with a flaky connection").
+//
+// v2: switched from cache-first to network-first for all requests, not
+// just navigations. Cache-first on JS/CSS meant a stale cached app.js
+// could silently keep running after a real code update — exactly what
+// happened after the sign-in rename. Network-first fixes that: always
+// fresh when online, cache only kicks in as a fallback when offline.
 
-const CACHE_NAME = 'barang-where-v1';
+const CACHE_NAME = 'barang-where-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -33,19 +39,20 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // Navigations (loading the app itself): try the network first, so you
-  // always get the current code and aren't stuck on a stale cached version.
-  // Only fall back to the cached shell if genuinely offline.
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
-
-  // Everything else (CSS/JS/icons): cache-first for speed, falling back
-  // to the network if it's not already cached.
+  // Network-first for everything: always try to get the current version
+  // first. Only fall back to whatever's cached if the network fails
+  // (genuinely offline), and keep the cache updated with each successful
+  // fetch so the offline fallback doesn't go stale either.
   event.respondWith(
-    caches.match(req).then((cached) => cached || fetch(req))
+    fetch(req)
+      .then((res) => {
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
+        return res;
+      })
+      .catch(() =>
+        caches.match(req).then((cached) => cached || (req.mode === 'navigate' ? caches.match('./index.html') : undefined))
+      )
   );
 });
+
