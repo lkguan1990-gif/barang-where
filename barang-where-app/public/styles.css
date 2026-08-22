@@ -66,7 +66,7 @@
   }
 
   /* ---------- Screens ---------- */
-  .screen{display:none; flex:1; padding:16px 16px 96px;}
+  .screen{display:none; flex:1; padding:16px 16px calc(96px + env(safe-area-inset-bottom, 0px));}
   .screen.active{display:block;}
 
   /* ---------- Section divider (laundry pole motif) ---------- */
@@ -475,6 +475,7 @@
   .bottomnav{
     position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px;
     background:var(--ink); border-top:2px solid var(--ink); display:flex; z-index:30;
+    padding-bottom:env(safe-area-inset-bottom, 0px);
   }
   .navbtn{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:11px 0 9px;
