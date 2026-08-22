@@ -409,6 +409,7 @@
   }
   .boost-btn.is-boosted{background:var(--hdb-red); color:#fff;}
   .boost-btn.is-disabled{border-color:var(--ink-soft); color:var(--ink-soft); cursor:not-allowed; opacity:0.6;}
+  .boost-btn.is-boosted.is-disabled{background:var(--hdb-red); color:#fff; border-color:var(--hdb-red); opacity:1; cursor:not-allowed;}
 
   /* ---------- Pro upsell banner ---------- */
   .pro-banner{
