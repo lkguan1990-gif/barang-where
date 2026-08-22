@@ -47,6 +47,7 @@ let activeCategory = "All";
 let currentItemId = null;
 let currentItemCache = null;  // last-opened item detail, so we don't need a refetch for send/save
 let currentGarageId = null;
+let currentGarageItemsCache = [];
 let itemDetailFrom = 'nearby';
 let currentConversation = null;
 let realtimeChannel = null;
@@ -330,7 +331,8 @@ function buildRadiusChips(){
 window.setRadius = function(km){ radiusKm = km; buildRadiusChips(); renderGarageList(); };
 
 function renderGarageList(){
-  const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  const rawQuery = (document.getElementById('searchInput')?.value || '').trim();
+  const q = rawQuery.toLowerCase();
   let list = nearbyGarages.slice().sort((a,b)=>{
     const aBoost = (a.items||[]).some(i=>isActivelyBoosted(i)) ? 1 : 0;
     const bBoost = (b.items||[]).some(i=>isActivelyBoosted(i)) ? 1 : 0;
@@ -352,7 +354,9 @@ function renderGarageList(){
     return matchesCat && matchesQ && withinRadius && hasAvailableItems;
   });
   const radiusLabel = radiusKm === null ? 'any distance' : (radiusKm < 1 ? (radiusKm*1000)+'m' : radiusKm+'km');
-  document.getElementById('resultsCount').textContent = `${filtered.length} garage${filtered.length===1?'':'s'} within ${radiusLabel}`;
+  document.getElementById('resultsCount').textContent = rawQuery
+    ? `${filtered.length} garage${filtered.length===1?'':'s'} match "${rawQuery}"`
+    : `${filtered.length} garage${filtered.length===1?'':'s'} within ${radiusLabel}`;
   const box = document.getElementById('garageList');
   if (filtered.length===0){
     const reason = nearbyGarages.length===0
@@ -361,9 +365,21 @@ function renderGarageList(){
     box.innerHTML = `<div class="empty"><p>No garages match yet.<br>${reason}</p></div>`;
     return;
   }
-  box.innerHTML = filtered.map(g=>garageCardHtml(g)).join('');
+  box.innerHTML = filtered.map(g=>garageCardHtml(g, rawQuery)).join('');
 }
-function garageCardHtml(g){
+function highlightMatch(rawText, query){
+  if (!query) return esc(rawText || '');
+  const text = rawText || '';
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(query.toLowerCase());
+  if (idx === -1) return esc(text);
+  const before = text.slice(0, idx);
+  const match = text.slice(idx, idx + query.length);
+  const after = text.slice(idx + query.length);
+  return esc(before) + '<mark class="search-hl">' + esc(match) + '</mark>' + esc(after);
+}
+function garageCardHtml(g, query){
+  query = query || '';
   const c = colorFor(g.id);
   const items = (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || (it.categories||[]).includes(activeCategory)));
   const preview = items.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${isActivelyBoosted(it)?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
@@ -372,13 +388,13 @@ function garageCardHtml(g){
   const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : g.distance+'m');
   const liked = savedGarageIds.has(g.id);
   return `
-    <div class="garage-card" style="position:relative;" onclick="openGarage('${g.id}')">
+    <div class="garage-card" style="position:relative;" data-query="${esc(query)}" onclick="openGarage('${g.id}', this.dataset.query)">
       ${isBoosted ? '<div class="boost-tag">🔥 Boosted</div>' : ''}
       <div class="garage-like-btn ${liked?'liked':''}" onclick="toggleSaveGarage('${g.id}', event)">${liked?'♥':'♡'}</div>
       <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="info">
-        <div class="row1"><div class="name">${esc(g.display_name)}</div><div class="dist">${distLabel}</div></div>
-        <div class="addr">Blk ${esc(g.block)}, ${townLabel(g)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
+        <div class="row1"><div class="name">${highlightMatch(g.display_name, query)}</div><div class="dist">${distLabel}</div></div>
+        <div class="addr">Blk ${highlightMatch(g.block, query)}, ${townLabel(g)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
         <div class="preview">${preview}${more}</div>
       </div>
     </div>`;
@@ -387,7 +403,7 @@ function garageCardHtml(g){
 /* =========================================================
    GARAGE PAGE
 ========================================================= */
-window.openGarage = async function(id){
+window.openGarage = async function(id, carryoverQuery){
   let g = nearbyGarages.find(x=>x.id===id);
   if (!g) {
     // Not in the current radius/session cache -- e.g. opened from Liked
@@ -402,6 +418,7 @@ window.openGarage = async function(id){
     };
   }
   currentGarageId = id;
+  currentGarageItemsCache = g.items || [];
   const c = colorFor(id);
   const liked = savedGarageIds.has(id);
   document.getElementById('garageHeaderBox').innerHTML = `
@@ -414,14 +431,37 @@ window.openGarage = async function(id){
       </div>
     </div>
     <div class="garage-header-like ${liked?'liked':''}" onclick="toggleSaveGarage('${id}', event)">${liked?'♥ Liked':'♡ Like this garage'}</div>`;
-  const grid = document.getElementById('garageItemGrid');
-  const items = g.items || [];
-  grid.innerHTML = items.length===0
-    ? `<div class="empty" style="grid-column:1/-1;"><div class="glyph">📦</div><p>No items listed yet.</p></div>`
-    : items.map(it=>itemCardHtml(it, id)).join('');
+
+  const searchBox = document.getElementById('garageSearchInput');
+  searchBox.value = carryoverQuery || '';
+  renderGarageItemGrid();
   show('garage');
+  if (carryoverQuery) toast(`Showing items matching "${carryoverQuery}"`);
 };
-function itemCardHtml(it, garageId, fromScreen){
+window.renderGarageItemGrid = function(){
+  const query = (document.getElementById('garageSearchInput')?.value || '').trim();
+  const q = query.toLowerCase();
+  const grid = document.getElementById('garageItemGrid');
+  const all = currentGarageItemsCache;
+  const items = !q ? all : all.filter(it =>
+    (it.title||'').toLowerCase().includes(q)
+    || (it.description||'').toLowerCase().includes(q)
+    || (it.categories||[]).some(cat=>cat.toLowerCase().includes(q))
+  );
+  document.getElementById('garageItemCount').textContent = q
+    ? `${items.length} item${items.length===1?'':'s'} match "${query}"`
+    : `${all.length} item${all.length===1?'':'s'}`;
+  if (all.length===0){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="glyph">📦</div><p>No items listed yet.</p></div>`;
+    return;
+  }
+  if (items.length===0){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;"><p>No items match "${esc(query)}".<br>Try a different keyword.</p></div>`;
+    return;
+  }
+  grid.innerHTML = items.map(it=>itemCardHtml(it, currentGarageId, 'garage', query)).join('');
+};
+function itemCardHtml(it, garageId, fromScreen, query){
   const statusClass = it.status.toLowerCase();
   const from = fromScreen || 'garage';
   return `
@@ -432,7 +472,7 @@ function itemCardHtml(it, garageId, fromScreen){
       <div class="status-tag ${statusClass}">${it.status}</div>
     </div>
     <div class="item-body">
-      <div class="item-title">${esc(it.title)}</div>
+      <div class="item-title">${highlightMatch(it.title, query)}</div>
       <div class="item-price">$${Number(it.price).toFixed(2)}</div>
       <div class="item-cond">${esc(it.condition)}</div>
     </div>
@@ -443,7 +483,10 @@ function itemCardHtml(it, garageId, fromScreen){
    ITEM DETAIL
 ========================================================= */
 window.backFromItem = function(){
-  if (itemDetailFrom==='garage' && currentGarageId) openGarage(currentGarageId);
+  if (itemDetailFrom==='garage' && currentGarageId) {
+    const existingQuery = document.getElementById('garageSearchInput')?.value || '';
+    openGarage(currentGarageId, existingQuery);
+  }
   else if (itemDetailFrom==='liked') show('liked');
   else if (itemDetailFrom==='mygarage') show('mygarage');
   else show('nearby');
@@ -579,7 +622,10 @@ window.toggleSaveGarage = async function(garageId, evt){
     await supabase.from('saved_garages').insert({user_id: session.user.id, garage_id: garageId});
   }
   // Refresh whatever's currently visible so the heart state updates immediately.
-  if (currentScreen === 'garage') openGarage(garageId);
+  if (currentScreen === 'garage') {
+    const existingQuery = document.getElementById('garageSearchInput')?.value || '';
+    openGarage(garageId, existingQuery);
+  }
   else if (currentScreen === 'nearby') renderGarageList();
   else if (currentScreen === 'liked') renderLikedGarages();
 };
