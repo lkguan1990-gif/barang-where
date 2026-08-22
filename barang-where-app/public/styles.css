@@ -478,7 +478,7 @@
   }
   .navbtn{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:11px 0 9px;
-    color:#a9ad9c; cursor:pointer; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+    color:#D8D4C4; cursor:pointer; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
     background:none; border:none; font-family:'Inter';
   }
   .navbtn.active{color:var(--sunny);}
@@ -499,7 +499,6 @@
   background:var(--card); border:2px solid var(--ink); border-radius:16px; padding:28px 22px;
   box-shadow:var(--shadow); text-align:center;
 }
-.auth-card .glyph{font-size:38px; margin-bottom:10px;}
 .auth-card h1{font-family:'Anton',sans-serif; font-size:24px; margin:0 0 8px;}
 .auth-card p{font-size:13px; color:var(--ink-soft); line-height:1.5; margin:0 0 18px;}
 .auth-card input{width:100%; padding:12px; border-radius:9px; border:2px solid var(--ink); font-family:'Inter'; font-size:16px; margin-bottom:12px; background:#fff;}

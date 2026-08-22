@@ -31,12 +31,16 @@
   <!-- ============ AUTH ============ -->
   <div class="auth-wrap" id="screen-auth" style="display:none;">
     <div class="auth-card">
-      <div class="glyph">🏘️</div>
       <h1>BARANG WHERE</h1>
       <p>Your block's garage sale, online. Enter your email — we'll send you a magic link, no password needed.</p>
       <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" maxlength="100">
       <button class="btn block red" onclick="sendMagicLink()">Send me a magic link</button>
       <div class="auth-msg" id="authMsg"></div>
+      <div id="otpCodeSection" style="display:none; margin-top:16px;">
+        <div class="field-hint" style="margin-bottom:8px;">Using the app you installed to your home screen? Email links open in your browser instead — enter the 6-digit code from the same email here instead, no need to leave this screen.</div>
+        <input type="text" id="otpCodeInput" placeholder="6-digit code" inputmode="numeric" maxlength="6" style="text-align:center; letter-spacing:0.3em; font-size:20px;">
+        <button class="btn block ghost" style="margin-top:10px;" onclick="verifyOtpCode()">Verify code</button>
+      </div>
     </div>
   </div>
 

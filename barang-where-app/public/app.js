@@ -159,6 +159,21 @@ window.sendMagicLink = async function(){
   if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
   msg.className = 'auth-msg ok';
   msg.textContent = '✓ Check your email for the magic link, then come back to this tab.';
+  document.getElementById('otpCodeSection').style.display = 'block';
+};
+window.verifyOtpCode = async function(){
+  const email = document.getElementById('authEmail').value.trim();
+  const token = document.getElementById('otpCodeInput').value.trim();
+  const msg = document.getElementById('authMsg');
+  if (!email) { msg.className='auth-msg error'; msg.textContent='Enter your email first.'; return; }
+  if (!token) { msg.className='auth-msg error'; msg.textContent='Enter the 6-digit code from your email.'; return; }
+  msg.className = 'auth-msg'; msg.textContent = 'Verifying…';
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
+  msg.className = 'auth-msg ok'; msg.textContent = '✓ Signed in!';
+  // onAuthStateChange picks up the new session and routes automatically —
+  // no page navigation happened, so this works identically whether we're
+  // in an installed home-screen app or a regular browser tab.
 };
 
 window.finishOnboarding = async function(){
