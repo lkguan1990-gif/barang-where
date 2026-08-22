@@ -207,6 +207,14 @@ window.signOut = async function(){
   if (globalMessageChannel) { supabase.removeChannel(globalMessageChannel); globalMessageChannel = null; }
   unreadConversationIds.clear();
   myGarage = null; myItems = []; nearbyGarages = [];
+  // Reset the sign-in screen back to a clean state, so it doesn't show
+  // the previous session's leftover code, success message, or open code box.
+  const otpInput = document.getElementById('otpCodeInput');
+  const otpSection = document.getElementById('otpCodeSection');
+  const authMsg = document.getElementById('authMsg');
+  if (otpInput) otpInput.value = '';
+  if (otpSection) otpSection.style.display = 'none';
+  if (authMsg) { authMsg.className = 'auth-msg'; authMsg.textContent = ''; }
   route();
 };
 

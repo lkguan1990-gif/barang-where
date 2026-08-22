@@ -37,7 +37,7 @@
       <button class="btn block red" onclick="sendSignInCode()">Send me a code</button>
       <div class="auth-msg" id="authMsg"></div>
       <div id="otpCodeSection" style="display:none; margin-top:16px;">
-        <input type="text" id="otpCodeInput" placeholder="Code from your email" inputmode="numeric" maxlength="10" style="text-align:center; letter-spacing:0.3em; font-size:20px;">
+        <input type="text" id="otpCodeInput" placeholder="Code from your email" inputmode="numeric" maxlength="10" autocomplete="one-time-code" style="text-align:center; letter-spacing:0.3em; font-size:20px;">
         <button class="btn block ghost" style="margin-top:10px;" onclick="verifyOtpCode()">Verify code</button>
       </div>
     </div>

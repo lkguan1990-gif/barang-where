@@ -502,6 +502,7 @@
 .auth-card h1{font-family:'Anton',sans-serif; font-size:24px; margin:0 0 8px;}
 .auth-card p{font-size:13px; color:var(--ink-soft); line-height:1.5; margin:0 0 18px;}
 .auth-card input{width:100%; padding:12px; border-radius:9px; border:2px solid var(--ink); font-family:'Inter'; font-size:16px; margin-bottom:12px; background:#fff;}
+#otpCodeInput::placeholder{letter-spacing:normal; font-size:15px;}
 .auth-msg{font-size:12.5px; margin-top:12px; line-height:1.5;}
 .auth-msg.error{color:var(--hdb-red); font-weight:600;}
 .auth-msg.ok{color:var(--olive); font-weight:600;}
