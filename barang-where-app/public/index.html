@@ -20,7 +20,7 @@
       <div class="glyph">🏘️</div>
       <h1>BARANG WHERE</h1>
       <p>Your block's garage sale, online. Enter your email — we'll send you a magic link, no password needed.</p>
-      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email">
+      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" maxlength="100">
       <button class="btn block red" onclick="sendMagicLink()">Send me a magic link</button>
       <div class="auth-msg" id="authMsg"></div>
     </div>
@@ -34,11 +34,11 @@
       <p style="text-align:center;">Just the basics — you can add items after this.</p>
       <div class="field">
         <label>Your name (shown to neighbours)</label>
-        <input type="text" id="obName" placeholder="e.g. Wei Jie">
+        <input type="text" id="obName" placeholder="e.g. Wei Jie" maxlength="40">
       </div>
       <div class="field">
         <label>Block number / apartment number</label>
-        <input type="text" id="obBlock" placeholder="e.g. 302">
+        <input type="text" id="obBlock" placeholder="e.g. 302" maxlength="15">
       </div>
       <div class="field">
         <label>Town / estate</label>
@@ -66,10 +66,15 @@
           <option selected>Sengkang</option>
           <option>Serangoon</option>
           <option>Tampines</option>
+          <option>Tengah</option>
           <option>Toa Payoh</option>
           <option>Woodlands</option>
           <option>Yishun</option>
         </select>
+      </div>
+      <div class="field">
+        <label>Neighbourhood <span style="text-transform:none; font-weight:500;">— optional, e.g. "Khatib" or "near Pioneer MRT"</span></label>
+        <input type="text" id="obNeighbourhood" placeholder="e.g. Khatib" maxlength="40">
       </div>
       <div class="field-hint" id="obLocStatus">We'll ask your browser for your location next, so neighbours can be sorted by distance. We only ever show your block — never your exact address.</div>
       <button class="btn block red" style="margin-top:16px;" onclick="finishOnboarding()">Set up my garage</button>
@@ -96,7 +101,7 @@
           <div class="where">You're near <b id="estateName">—</b></div>
           <div class="iconbtn" style="width:30px;height:30px;font-size:12px;" onclick="loadNearby()">↻</div>
         </div>
-        <div class="searchbar"><input type="text" id="searchInput" placeholder="Search items or garages…" oninput="renderGarageList()"></div>
+        <div class="searchbar"><input type="text" id="searchInput" placeholder="Search items or garages…" oninput="renderGarageList()" maxlength="60"></div>
         <div class="chips" id="categoryChips"></div>
         <div class="radius-label">Distance</div>
         <div class="chips" id="radiusChips"></div>
@@ -130,7 +135,7 @@
       <div class="thread-item-strip" id="threadItemStrip"></div>
       <div class="messages" id="threadMessages"></div>
       <div class="composer">
-        <input type="text" id="composerInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendMsg()">
+        <input type="text" id="composerInput" placeholder="Type a message…" maxlength="500" onkeydown="if(event.key==='Enter')sendMsg()">
         <button onclick="sendMsg()">➤</button>
       </div>
     </div>
@@ -163,17 +168,17 @@
         <input type="file" id="photoFileInput" accept="image/*" style="display:none;" onchange="handlePhotoFile(this)">
         <div class="field-hint" id="photoHint"></div>
       </div>
-      <div class="field"><label>Title</label><input type="text" id="fTitle" placeholder="e.g. Rattan bookshelf, 3-tier"></div>
+      <div class="field"><label>Title</label><input type="text" id="fTitle" placeholder="e.g. Rattan bookshelf, 3-tier" maxlength="80"></div>
       <div class="field">
         <label>Category <span style="text-transform:none; font-weight:500;">— select all that apply, not sure? pick a couple</span></label>
         <div class="chips chips-wrap" id="fCategoryChips"></div>
       </div>
-      <div class="field"><label>Price (SGD)</label><input type="number" id="fPrice" placeholder="e.g. 25" min="0" step="0.01"></div>
+      <div class="field"><label>Price (SGD)</label><input type="number" id="fPrice" placeholder="e.g. 25" min="0" max="999999" step="0.01"></div>
       <div class="field">
         <label>Condition</label>
         <select id="fCondition"><option>New</option><option selected>Like new</option><option>Good</option><option>Fair</option></select>
       </div>
-      <div class="field"><label>Description</label><textarea id="fDesc" placeholder="Tell your neighbours a bit more."></textarea></div>
+      <div class="field"><label>Description</label><textarea id="fDesc" placeholder="Tell your neighbours a bit more." maxlength="500"></textarea></div>
       <button class="btn block red" style="margin-top:20px;" onclick="submitItem()" id="addItemSubmitBtn">Publish to my garage</button>
       <div class="auth-msg" id="itemFormMsg"></div>
     </div>
@@ -247,11 +252,11 @@
           <span style="font-weight:700;">Garage details</span>
           <div class="field" style="margin-top:0;">
             <label>Your name</label>
-            <input type="text" id="editGarageName">
+            <input type="text" id="editGarageName" maxlength="40">
           </div>
           <div class="field">
             <label>Block number / apartment number</label>
-            <input type="text" id="editGarageBlock">
+            <input type="text" id="editGarageBlock" maxlength="15">
           </div>
           <div class="field">
             <label>Town / estate</label>
@@ -279,10 +284,15 @@
               <option>Sengkang</option>
               <option>Serangoon</option>
               <option>Tampines</option>
+              <option>Tengah</option>
               <option>Toa Payoh</option>
               <option>Woodlands</option>
               <option>Yishun</option>
             </select>
+          </div>
+          <div class="field" style="margin-top:0;">
+            <label>Neighbourhood <span style="text-transform:none; font-weight:500;">— optional, e.g. "Khatib"</span></label>
+            <input type="text" id="editGarageNeighbourhood" placeholder="e.g. Khatib" maxlength="40">
           </div>
           <button class="btn small" style="align-self:flex-start;" onclick="saveGarageDetails()">Save changes</button>
           <div class="auth-msg" id="editGarageMsg"></div>

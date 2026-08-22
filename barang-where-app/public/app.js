@@ -69,6 +69,10 @@ const RADIUS_OPTIONS = [1, 3, null]; // null = "Any"
 function isActivelyBoosted(it){
   return !!(it && it.boosted && it.boost_expires_at && new Date(it.boost_expires_at) > new Date());
 }
+function townLabel(g){
+  const t = esc(g.town || '');
+  return g.neighbourhood ? `${t} (${esc(g.neighbourhood)})` : t;
+}
 function sameBlock(g){
   return (g.block||'').trim().toLowerCase() === (myGarage.block||'').trim().toLowerCase()
       && (g.town||'').trim().toLowerCase() === (myGarage.town||'').trim().toLowerCase();
@@ -160,6 +164,7 @@ window.finishOnboarding = async function(){
   const display_name = document.getElementById('obName').value.trim();
   const block = document.getElementById('obBlock').value.trim();
   const town = document.getElementById('obTown').value.trim() || (cfg.DEFAULT_TOWN || 'Sengkang');
+  const neighbourhood = document.getElementById('obNeighbourhood').value.trim();
   const msg = document.getElementById('obMsg');
   if (!display_name || !block) { msg.className='auth-msg error'; msg.textContent='Name and block are both required.'; return; }
 
@@ -175,7 +180,7 @@ window.finishOnboarding = async function(){
   }
 
   const { error } = await supabase.from('garages').insert({
-    id: session.user.id, display_name, block, town, lat, lng
+    id: session.user.id, display_name, block, town, neighbourhood, lat, lng
   });
   if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
   await route();
@@ -373,7 +378,7 @@ function garageCardHtml(g){
       <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="info">
         <div class="row1"><div class="name">${esc(g.display_name)}</div><div class="dist">${distLabel}</div></div>
-        <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
+        <div class="addr">Blk ${esc(g.block)}, ${townLabel(g)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
         <div class="preview">${preview}${more}</div>
       </div>
     </div>`;
@@ -404,7 +409,7 @@ window.openGarage = async function(id){
       <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="who">
         <div class="name">${esc(g.display_name)}</div>
-        <div class="addr">Blk ${esc(g.block)}, ${esc(g.town)} ${sameBlock(g) ? '· in your block' : ((g.distance!==null && g.distance!==undefined) ? '· '+g.distance+'m away' : '')}</div>
+        <div class="addr">Blk ${esc(g.block)}, ${townLabel(g)} ${sameBlock(g) ? '· in your block' : ((g.distance!==null && g.distance!==undefined) ? '· '+g.distance+'m away' : '')}</div>
         <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
       </div>
     </div>
@@ -491,7 +496,7 @@ window.openItem = function(itemId, garageId){
     ${isMine ? '' : `
     <div class="seller-strip" onclick="openGarage('${g.id}')">
       <div class="block-tile sz-sm" style="background:${c};"><div class="num">${esc(g.block)}</div></div>
-      <div><div class="name">${esc(g.display_name)}</div><div class="addr">Blk ${esc(g.block)}, ${esc(g.town)}</div></div>
+      <div><div class="name">${esc(g.display_name)}</div><div class="addr">Blk ${esc(g.block)}, ${townLabel(g)}</div></div>
     </div>`}
     <div class="action-row">
       ${isMine
@@ -711,7 +716,7 @@ async function loadMyItems(){
 }
 window.renderMyGarage = function(){
   document.getElementById('myBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').toUpperCase())}</div>`;
-  document.getElementById('myAddrLine').textContent = `Blk ${myGarage.block}, ${myGarage.town}`;
+  document.getElementById('myAddrLine').textContent = `Blk ${myGarage.block}, ${myGarage.town}${myGarage.neighbourhood ? ' ('+myGarage.neighbourhood+')' : ''}`;
   document.getElementById('myItemCount').textContent = myItems.filter(i=>i.status!=='Sold').length;
   document.getElementById('mySoldCount').textContent = myItems.filter(i=>i.status==='Sold').length;
   document.getElementById('proBadgeSlot').innerHTML = myGarage.is_pro ? '<span class="pro-badge">★ PRO</span>' : '';
@@ -773,16 +778,18 @@ window.saveGarageDetails = async function(){
   const display_name = document.getElementById('editGarageName').value.trim();
   const block = document.getElementById('editGarageBlock').value.trim();
   const town = document.getElementById('editGarageTown').value;
+  const neighbourhood = document.getElementById('editGarageNeighbourhood').value.trim();
   const msg = document.getElementById('editGarageMsg');
   if (!display_name || !block) { msg.className='auth-msg error'; msg.textContent='Name and block are both required.'; return; }
 
   msg.className = 'auth-msg'; msg.textContent = 'Saving…';
-  const { error } = await supabase.from('garages').update({ display_name, block, town }).eq('id', session.user.id);
+  const { error } = await supabase.from('garages').update({ display_name, block, town, neighbourhood }).eq('id', session.user.id);
   if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
 
   myGarage.display_name = display_name;
   myGarage.block = block;
   myGarage.town = town;
+  myGarage.neighbourhood = neighbourhood;
   msg.className = 'auth-msg ok'; msg.textContent = '✓ Saved!';
   renderProfile();
   toast('Garage details updated');
@@ -1089,11 +1096,12 @@ window.cancelPro = async function(){
 window.renderProfile = function(){
   document.getElementById('profileBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').toUpperCase())}</div>`;
   document.getElementById('profileName').textContent = myGarage.display_name;
-  document.getElementById('profileAddr').textContent = `Blk ${myGarage.block}, ${myGarage.town}`;
+  document.getElementById('profileAddr').textContent = `Blk ${myGarage.block}, ${myGarage.town}${myGarage.neighbourhood ? ' ('+myGarage.neighbourhood+')' : ''}`;
 
   document.getElementById('editGarageName').value = myGarage.display_name || '';
   document.getElementById('editGarageBlock').value = myGarage.block || '';
   document.getElementById('editGarageTown').value = myGarage.town || 'Sengkang';
+  document.getElementById('editGarageNeighbourhood').value = myGarage.neighbourhood || '';
   document.getElementById('editGarageMsg').textContent = '';
 
   const mode = myGarage.location_mode || 'fixed';
