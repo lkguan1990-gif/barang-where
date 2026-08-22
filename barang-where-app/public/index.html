@@ -4,6 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Barang Where — Nearby Garage Sales</title>
+
+<!-- PWA: manifest + theme color -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#24291F">
+
+<!-- PWA: icons -->
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<!-- iOS-specific: Safari doesn't fully read the manifest, so these fill the gap -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Barang Where">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
@@ -347,5 +361,12 @@
 
 <script src="config.js"></script>
 <script type="module" src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => console.error('Service worker registration failed:', err));
+    });
+  }
+</script>
 </body>
 </html>
