@@ -41,7 +41,7 @@
 
   /* ---------- Top bar ---------- */
   .topbar{
-    padding:18px 18px 14px;
+    padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 14px;
     display:flex;
     align-items:center;
     justify-content:space-between;

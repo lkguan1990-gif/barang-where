@@ -70,6 +70,16 @@ const RADIUS_OPTIONS = [1, 3, null]; // null = "Any"
 function isActivelyBoosted(it){
   return !!(it && it.boosted && it.boost_expires_at && new Date(it.boost_expires_at) > new Date());
 }
+function boostTimeLeft(expiresAt){
+  const ms = new Date(expiresAt) - new Date();
+  if (ms <= 0) return null;
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m left`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h left`;
+  const days = Math.floor(hours / 24);
+  return `${days}d left`;
+}
 function townLabel(g){
   const t = esc(g.town || '');
   return g.neighbourhood ? `${t} (${esc(g.neighbourhood)})` : t;
@@ -831,7 +841,7 @@ window.renderMyGarage = function(){
           ${it.status==='Sold'
             ? `<div class="boost-btn is-disabled" title="Can't boost a sold item">🔥 Sold</div>`
             : isActivelyBoosted(it)
-              ? `<div class="boost-btn is-boosted is-disabled" title="Boosted until ${new Date(it.boost_expires_at).toLocaleString()}">🔥 Boosted</div>`
+              ? `<div class="boost-btn is-boosted is-disabled">🔥 ${boostTimeLeft(it.boost_expires_at)}</div>`
               : `<div class="boost-btn" onclick="openBoost('${it.id}')">🔥 Boost</div>`}
         </div>
       </div>`).join('');
