@@ -84,6 +84,10 @@ function townLabel(g){
   const t = esc(g.town || '');
   return g.neighbourhood ? `${t} (${esc(g.neighbourhood)})` : t;
 }
+function formatDistance(meters){
+  if (meters >= 1000) return (meters/1000).toFixed(1).replace(/\.0$/,'') + 'km';
+  return meters + 'm';
+}
 function sameBlock(g){
   return (g.block||'').trim().toLowerCase() === (myGarage.block||'').trim().toLowerCase()
       && (g.town||'').trim().toLowerCase() === (myGarage.town||'').trim().toLowerCase();
@@ -418,7 +422,7 @@ function garageCardHtml(g, query){
   const preview = items.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${isActivelyBoosted(it)?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
   const more = (g.items||[]).length>4 ? `<div class="mini-item more">+${g.items.length-4}</div>` : '';
   const isBoosted = (g.items||[]).some(i=>isActivelyBoosted(i));
-  const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : g.distance+'m');
+  const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : formatDistance(g.distance));
   const liked = savedGarageIds.has(g.id);
   return `
     <div class="garage-card" style="position:relative;" data-query="${esc(query)}" onclick="openGarage('${g.id}', this.dataset.query)">
@@ -459,7 +463,7 @@ window.openGarage = async function(id, carryoverQuery){
       <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="who">
         <div class="name">${esc(g.display_name)}</div>
-        <div class="addr">Blk ${esc(g.block)}, ${townLabel(g)} ${sameBlock(g) ? '· in your block' : ((g.distance!==null && g.distance!==undefined) ? '· '+g.distance+'m away' : '')}</div>
+        <div class="addr">Blk ${esc(g.block)}, ${townLabel(g)} ${sameBlock(g) ? '· in your block' : ((g.distance!==null && g.distance!==undefined) ? '· '+formatDistance(g.distance)+' away' : '')}</div>
         <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
       </div>
     </div>
