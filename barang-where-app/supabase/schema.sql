@@ -205,5 +205,62 @@ create policy "Users delete their own photos"
   );
 
 -- ------------------------------------------------------------
+-- CONTENT MODERATION — blocks listings referencing illegal or
+-- adult-content terms at the database level, so it can't be bypassed
+-- by calling the API directly instead of using the website. Keep this
+-- in sync with public/moderation-keywords.js when adding new terms --
+-- see the comments in migration-007-content-moderation.sql.
+-- ------------------------------------------------------------
+create or replace function public.check_forbidden_content()
+returns trigger
+language plpgsql
+as $$
+declare
+  forbidden_terms text[] := array[
+    'firearm','handgun','pistol','revolver','rifle','shotgun',
+    'ammunition','ammo round','bullet cartridge','gun magazine',
+    'grenade','detonator','gun silencer','gun suppressor',
+    'flick knife','butterfly knife','balisong','gravity knife',
+    'knuckle duster','brass knuckles','stun gun','taser',
+    'pepper spray','crossbow','airsoft gun','bb gun replica',
+    'cannabis','marijuana','weed for sale','cocaine','heroin',
+    'methamphetamine','crystal meth','ecstasy pills','mdma',
+    'ketamine','lsd tabs','opium','cbd oil','cannabis oil',
+    'drug paraphernalia','bong for drugs','vape juice thc','thc oil',
+    'fireworks for sale','firecracker','explosive device','gunpowder',
+    'blasting cap','pipe bomb',
+    'vape','e-cigarette','electronic cigarette','vape pod',
+    'vape juice','e-liquid','pod system device','heat-not-burn device',
+    'juul','iqos',
+    'ivory','rhino horn','shark fin','tiger bone','pangolin scale',
+    'turtle shell','exotic animal pelt','endangered species product',
+    'sex toy','vibrator','dildo','adult video','pornographic content',
+    'escort service','sex worker service','brothel','nude photo set',
+    'adult content subscription','sex doll','fetish gear for sale',
+    'counterfeit','replica currency','fake currency','stolen goods',
+    'pirated software','cracked software','fake id card',
+    'counterfeit passport','forged document','fake designer',
+    'prescription medication for sale','controlled medicine',
+    'unregistered pharmaceutical','human organ'
+  ];
+  combined_text text;
+  term text;
+begin
+  combined_text := lower(coalesce(new.title, '') || ' ' || coalesce(new.description, ''));
+  foreach term in array forbidden_terms loop
+    if combined_text like '%' || term || '%' then
+      raise exception 'Listing blocked: contains a restricted term ("%").', term;
+    end if;
+  end loop;
+  return new;
+end;
+$$;
+
+drop trigger if exists items_content_moderation on public.items;
+create trigger items_content_moderation
+  before insert or update on public.items
+  for each row execute function public.check_forbidden_content();
+
+-- ------------------------------------------------------------
 -- Done. Next steps are in README.md.
 -- ------------------------------------------------------------

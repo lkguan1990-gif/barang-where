@@ -71,6 +71,20 @@ const RADIUS_OPTIONS = [1, 3, null]; // null = "Any"
 /* =========================================================
    HELPERS
 ========================================================= */
+function checkForbiddenContent(text){
+  // Checks listing text against window.FORBIDDEN_KEYWORDS (defined in
+  // moderation-keywords.js). Returns the matched term, or null if clean.
+  // NOTE: this is a client-side check only -- see the warning comment at
+  // the top of moderation-keywords.js about why this alone isn't enough.
+  const lower = (text || '').toLowerCase();
+  const categories = window.FORBIDDEN_KEYWORDS || {};
+  for (const category in categories) {
+    for (const term of categories[category]) {
+      if (lower.includes(term)) return term;
+    }
+  }
+  return null;
+}
 function sortByStatusPriority(items){
   const order = { Available: 0, Reserved: 1, Sold: 2 };
   return items.slice().sort((a,b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
@@ -539,7 +553,8 @@ function garageCardHtml(g, query, matchingItems){
   let priceLabel = '';
   if (matchingItems && matchingItems.length) {
     const cheapest = matchingItems.reduce((min, it) => Number(it.price) < Number(min.price) ? it : min);
-    const conditionLabel = (conditionFilter === 'All' && matchingItems.length > 1) ? 'Various' : cheapest.condition;
+    const uniqueConditions = new Set(matchingItems.map(it => it.condition));
+    const conditionLabel = (conditionFilter === 'All' && uniqueConditions.size > 1) ? 'Various' : cheapest.condition;
     priceLabel = `<div class="price-indicator">${esc(conditionLabel)} condition from S$${Number(cheapest.price).toFixed(0)}</div>`;
   }
   return `
@@ -1219,6 +1234,25 @@ window.handlePhotoFile = function(input){
 };
 window.removePhoto = function(i){ formPhotos.splice(i,1); renderPhotoUploadRow(); };
 
+async function readFileSafely(file){
+  // Some iOS Safari photo selections (particularly with iCloud Photo
+  // Library's "Optimize Storage" on) can hand us a File object whose full
+  // content hasn't actually finished downloading from iCloud yet -- it
+  // looks selected and previews fine, but uploading it directly can send
+  // essentially nothing. Explicitly reading it first forces the browser
+  // to fully materialize the data, and lets us catch a genuinely empty
+  // file with a clear message instead of a confusing server-side error.
+  let buf;
+  try {
+    buf = await file.arrayBuffer();
+  } catch (e) {
+    throw new Error('Could not read this photo — try selecting it again.');
+  }
+  if (!buf || buf.byteLength === 0) {
+    throw new Error('This photo has no readable content yet (this can happen with iCloud-optimized photos) — try again in a moment, or pick a different photo.');
+  }
+  return new Blob([buf], { type: file.type || 'image/jpeg' });
+}
 function extractStoragePath(url){
   const marker = '/item-photos/';
   const i = url.indexOf(marker);
@@ -1236,6 +1270,13 @@ window.submitItem = async function(){
 
   if (!title || isNaN(price)) { msg.className='auth-msg error'; msg.textContent='Please add at least a title and price.'; return; }
   if (categories.length === 0) { msg.className='auth-msg error'; msg.textContent='Pick at least one category.'; return; }
+
+  const flaggedTerm = checkForbiddenContent(title + ' ' + description);
+  if (flaggedTerm) {
+    msg.className = 'auth-msg error';
+    msg.textContent = `This listing can't be published — it appears to reference "${flaggedTerm}", which isn't allowed on Barang Where. If this is a mistake, please rephrase your listing.`;
+    return;
+  }
 
   if (editingItemId) {
     // ---------- EDIT existing item ----------
@@ -1255,15 +1296,26 @@ window.submitItem = async function(){
     // Upload any newly added photos.
     const newUrls = [];
     let uploadFailures = 0;
+    let lastUploadError = null;
     for (const p of newFiles) {
       const ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${session.user.id}/${editingItemId}-${Date.now()}-${newUrls.length}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('item-photos').upload(path, p.file, {
-        cacheControl: '3600', upsert: false, contentType: p.file.type
-      });
-      if (upErr) { console.error('Photo upload failed:', upErr); uploadFailures++; continue; }
-      const { data: pub } = supabase.storage.from('item-photos').getPublicUrl(path);
-      newUrls.push(pub.publicUrl);
+      let uploadedOk = false;
+      try {
+        const safeBlob = await readFileSafely(p.file);
+        const { error: upErr } = await supabase.storage.from('item-photos').upload(path, safeBlob, {
+          cacheControl: '3600', upsert: false, contentType: p.file.type || 'image/jpeg'
+        });
+        if (upErr) throw upErr;
+        uploadedOk = true;
+      } catch (e) {
+        console.error('Photo upload failed:', e);
+        uploadFailures++; lastUploadError = e;
+      }
+      if (uploadedOk) {
+        const { data: pub } = supabase.storage.from('item-photos').getPublicUrl(path);
+        newUrls.push(pub.publicUrl);
+      }
     }
 
     const finalPhotos = [...keptUrls, ...newUrls];
@@ -1276,7 +1328,7 @@ window.submitItem = async function(){
     const savedId = editingItemId;
     editingItemId = null;
     toast(uploadFailures > 0
-      ? `Saved, but ${uploadFailures} photo${uploadFailures===1?'':'s'} failed to upload — try adding ${uploadFailures===1?'it':'them'} again.`
+      ? `Saved, but ${uploadFailures} photo${uploadFailures===1?'':'s'} failed to upload (${lastUploadError?.message || 'unknown error'}). Try adding ${uploadFailures===1?'it':'them'} again.`
       : 'Changes saved!');
     openItem(savedId, 'mine');
     return;
@@ -1298,12 +1350,22 @@ window.submitItem = async function(){
   for (const p of formPhotos) {
     const ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `${session.user.id}/${item.id}-${Date.now()}-${urls.length}.${ext}`;
-    const { error: upErr } = await supabase.storage.from('item-photos').upload(path, p.file, {
-      cacheControl: '3600', upsert: false, contentType: p.file.type
-    });
-    if (upErr) { console.error('Photo upload failed:', upErr); uploadFailures++; lastUploadError = upErr; continue; }
-    const { data: pub } = supabase.storage.from('item-photos').getPublicUrl(path);
-    urls.push(pub.publicUrl);
+    let uploadedOk = false;
+    try {
+      const safeBlob = await readFileSafely(p.file);
+      const { error: upErr } = await supabase.storage.from('item-photos').upload(path, safeBlob, {
+        cacheControl: '3600', upsert: false, contentType: p.file.type || 'image/jpeg'
+      });
+      if (upErr) throw upErr;
+      uploadedOk = true;
+    } catch (e) {
+      console.error('Photo upload failed:', e);
+      uploadFailures++; lastUploadError = e;
+    }
+    if (uploadedOk) {
+      const { data: pub } = supabase.storage.from('item-photos').getPublicUrl(path);
+      urls.push(pub.publicUrl);
+    }
   }
 
   // 3. Attach the uploaded URLs back onto the item.
