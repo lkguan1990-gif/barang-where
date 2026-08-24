@@ -48,6 +48,8 @@ let currentItemId = null;
 let currentItemCache = null;  // last-opened item detail, so we don't need a refetch for send/save
 let currentGarageId = null;
 let currentGarageItemsCache = [];
+let garageStatusFilter = 'All';
+let myGarageStatusFilter = 'All';
 let itemDetailFrom = 'nearby';
 let currentConversation = null;
 let realtimeChannel = null;
@@ -67,6 +69,10 @@ const RADIUS_OPTIONS = [1, 3, null]; // null = "Any"
 /* =========================================================
    HELPERS
 ========================================================= */
+function sortByStatusPriority(items){
+  const order = { Available: 0, Reserved: 1, Sold: 2 };
+  return items.slice().sort((a,b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+}
 function isActivelyBoosted(it){
   return !!(it && it.boosted && it.boost_expires_at && new Date(it.boost_expires_at) > new Date());
 }
@@ -254,7 +260,10 @@ window.show = function(screen){
   document.querySelectorAll('.navbtn').forEach(b=>b.classList.remove('active'));
   const navMap = {nearby:'nearby', mygarage:'mygarage', additem:'mygarage', chats:'chats', thread:'chats',
                    profile:'profile', garage:'nearby', item:'nearby', boost:'mygarage', pro:'mygarage', liked:'profile'};
-  const navKey = navMap[screen];
+  let navKey = navMap[screen];
+  if (screen === 'item') {
+    navKey = itemDetailFrom === 'mygarage' ? 'mygarage' : (itemDetailFrom === 'liked' ? 'profile' : 'nearby');
+  }
   document.querySelectorAll('.navbtn').forEach(b=>{ if (b.dataset.nav===navKey) b.classList.add('active'); });
 
   if (screen==='nearby') loadNearby();
@@ -398,32 +407,71 @@ function renderGarageList(){
     const ad = a.distance ?? Infinity, bd = b.distance ?? Infinity;
     return ad - bd;
   });
-  const filtered = list.filter(g=>{
+
+  // Classify each garage: passes the base filters at all, and if actively
+  // searching, whether it matched by item (with the cheapest matching item
+  // for the price indicator) or only by name/block/town.
+  const classified = list.map(g=>{
     const items = g.items || [];
     const name = (g.display_name || '').toLowerCase();
     const block = (g.block || '').toLowerCase();
     const town = (g.town || '').toLowerCase();
     const matchesCat = activeCategory==="All" || items.some(it=>(it.categories||[]).includes(activeCategory));
-    const matchesQ = !q || name.includes(q) || block.includes(q) || town.includes(q)
-      || items.some(it => (it.title||'').toLowerCase().includes(q) || (it.categories||[]).some(cat=>cat.toLowerCase().includes(q)));
     const hasLocation = g.distance !== null && g.distance !== undefined;
-    const withinRadius = radiusKm === null ? true : (hasLocation && g.distance <= radiusKm*1000);
+    const withinRadius = q ? true : (radiusKm === null ? true : (hasLocation && g.distance <= radiusKm*1000));
     const hasAvailableItems = items.some(it=>it.status!=='Sold');
-    return matchesCat && matchesQ && withinRadius && hasAvailableItems;
-  });
-  const radiusLabel = radiusKm === null ? 'any distance' : (radiusKm < 1 ? (radiusKm*1000)+'m' : radiusKm+'km');
-  document.getElementById('resultsCount').textContent = rawQuery
-    ? `${filtered.length} garage${filtered.length===1?'':'s'} match "${rawQuery}"`
-    : `${filtered.length} garage${filtered.length===1?'':'s'} within ${radiusLabel}`;
+    if (!matchesCat || !withinRadius || !hasAvailableItems) return null;
+
+    if (!q) return { g, matchType: 'none' };
+
+    const matchingItems = items.filter(it => it.status!=='Sold' &&
+      ((it.title||'').toLowerCase().includes(q) || (it.categories||[]).some(cat=>cat.toLowerCase().includes(q))));
+    if (matchingItems.length > 0) {
+      const cheapest = matchingItems.reduce((min, it) => Number(it.price) < Number(min.price) ? it : min);
+      return { g, matchType: 'item', priceItem: cheapest };
+    }
+    if (name.includes(q) || block.includes(q) || town.includes(q)) return { g, matchType: 'garage' };
+    return null;
+  }).filter(Boolean);
+
   const box = document.getElementById('garageList');
-  if (filtered.length===0){
-    const reason = nearbyGarages.length===0
-      ? 'Nearby listings will appear here as neighbours add items.'
-      : 'Try a wider radius, a different search, or another category.';
-    box.innerHTML = `<div class="empty"><p>No garages match yet.<br>${reason}</p></div>`;
+  const countLabel = document.getElementById('resultsCount');
+
+  if (!q) {
+    const radiusLabel = radiusKm === null ? 'any distance' : (radiusKm < 1 ? (radiusKm*1000)+'m' : radiusKm+'km');
+    countLabel.textContent = `${classified.length} garage${classified.length===1?'':'s'} within ${radiusLabel}`;
+    if (classified.length===0){
+      const reason = nearbyGarages.length===0
+        ? 'Nearby listings will appear here as neighbours add items.'
+        : 'Try a wider radius, a different search, or another category.';
+      box.innerHTML = `<div class="empty"><p>No garages match yet.<br>${reason}</p></div>`;
+      return;
+    }
+    box.innerHTML = classified.map(m=>garageCardHtml(m.g, rawQuery)).join('');
     return;
   }
-  box.innerHTML = filtered.map(g=>garageCardHtml(g, rawQuery)).join('');
+
+  // Active search: split into Items (with price) and Garages (name/block match only).
+  const itemMatches = classified.filter(m=>m.matchType==='item');
+  const garageMatches = classified.filter(m=>m.matchType==='garage');
+  const total = itemMatches.length + garageMatches.length;
+  countLabel.textContent = `${total} result${total===1?'':'s'} match "${rawQuery}"`;
+
+  if (total===0){
+    box.innerHTML = `<div class="empty"><p>No garages match yet.<br>Try a wider radius, a different search, or another category.</p></div>`;
+    return;
+  }
+
+  let html = '';
+  if (itemMatches.length>0){
+    html += `<div class="pole-divider" style="margin-top:0;"><span>ITEMS</span></div>`;
+    html += itemMatches.map(m=>garageCardHtml(m.g, rawQuery, m.priceItem)).join('');
+  }
+  if (garageMatches.length>0){
+    html += `<div class="pole-divider"><span>GARAGES</span></div>`;
+    html += garageMatches.map(m=>garageCardHtml(m.g, rawQuery, null)).join('');
+  }
+  box.innerHTML = html;
 }
 function highlightMatch(rawText, query){
   if (!query) return esc(rawText || '');
@@ -436,7 +484,7 @@ function highlightMatch(rawText, query){
   const after = text.slice(idx + query.length);
   return esc(before) + '<mark class="search-hl">' + esc(match) + '</mark>' + esc(after);
 }
-function garageCardHtml(g, query){
+function garageCardHtml(g, query, priceItem){
   query = query || '';
   const c = colorFor(g.id);
   const items = (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || (it.categories||[]).includes(activeCategory)));
@@ -445,6 +493,7 @@ function garageCardHtml(g, query){
   const isBoosted = (g.items||[]).some(i=>isActivelyBoosted(i));
   const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : formatDistance(g.distance));
   const liked = savedGarageIds.has(g.id);
+  const priceLabel = priceItem ? `<div class="price-indicator">${esc(priceItem.condition)} from S$${Number(priceItem.price).toFixed(0)}</div>` : '';
   return `
     <div class="garage-card" style="position:relative;" data-query="${esc(query)}" onclick="openGarage('${g.id}', this.dataset.query)">
       ${isBoosted ? '<div class="boost-tag">🔥 Boosted</div>' : ''}
@@ -453,7 +502,7 @@ function garageCardHtml(g, query){
       <div class="info">
         <div class="row1"><div class="name">${highlightMatch(g.display_name, query)}</div><div class="dist">${distLabel}</div></div>
         <div class="addr">Blk ${highlightMatch(g.block, query)}, ${townLabel(g)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
-        <div class="preview">${preview}${more}</div>
+        <div class="preview-row"><div class="preview">${preview}${more}</div>${priceLabel}</div>
       </div>
     </div>`;
 }
@@ -492,6 +541,8 @@ window.openGarage = async function(id, carryoverQuery){
 
   const searchBox = document.getElementById('garageSearchInput');
   searchBox.value = carryoverQuery || '';
+  garageStatusFilter = 'All';
+  buildGarageStatusChips();
   renderGarageItemGrid();
   show('garage');
   if (carryoverQuery) toast(`Showing items matching "${carryoverQuery}"`);
@@ -506,23 +557,42 @@ window.renderGarageItemGrid = function(){
   const q = query.toLowerCase();
   const grid = document.getElementById('garageItemGrid');
   const all = currentGarageItemsCache;
-  const items = !q ? all : all.filter(it =>
+  let items = !q ? all : all.filter(it =>
     (it.title||'').toLowerCase().includes(q)
     || (it.description||'').toLowerCase().includes(q)
     || (it.categories||[]).some(cat=>cat.toLowerCase().includes(q))
   );
+  if (garageStatusFilter !== 'All') {
+    items = items.filter(it => it.status === garageStatusFilter);
+  } else {
+    items = sortByStatusPriority(items);
+  }
   document.getElementById('garageItemCount').textContent = q
     ? `${items.length} item${items.length===1?'':'s'} match "${query}"`
-    : `${all.length} item${all.length===1?'':'s'}`;
+    : `${items.length} item${items.length===1?'':'s'}`;
   if (all.length===0){
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="glyph">📦</div><p>No items listed yet.</p></div>`;
     return;
   }
   if (items.length===0){
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;"><p>No items match "${esc(query)}".<br>Try a different keyword.</p></div>`;
+    grid.innerHTML = q
+      ? `<div class="empty" style="grid-column:1/-1;"><p>No items match "${esc(query)}".<br>Try a different keyword.</p></div>`
+      : `<div class="empty" style="grid-column:1/-1;"><p>No ${garageStatusFilter.toLowerCase()} items.</p></div>`;
     return;
   }
   grid.innerHTML = items.map(it=>itemCardHtml(it, currentGarageId, 'garage', query)).join('');
+};
+function buildGarageStatusChips(){
+  const box = document.getElementById('garageStatusChips');
+  if (!box) return;
+  box.innerHTML = ['All','Available','Reserved','Sold'].map(s=>
+    `<div class="chip ${s===garageStatusFilter?'active':''}" onclick="setGarageStatusFilter('${s}')">${s}</div>`
+  ).join('');
+}
+window.setGarageStatusFilter = function(s){
+  garageStatusFilter = s;
+  buildGarageStatusChips();
+  renderGarageItemGrid();
 };
 function itemCardHtml(it, garageId, fromScreen, query){
   const statusClass = it.status.toLowerCase();
@@ -552,10 +622,11 @@ window.backFromItem = function(){
   }
   else if (itemDetailFrom==='liked') show('liked');
   else if (itemDetailFrom==='mygarage') show('mygarage');
+  else if (itemDetailFrom==='thread' && currentConversation) openThread(currentConversation.id);
   else show('nearby');
 };
 window.openItem = function(itemId, garageId, fromScreen){
-  itemDetailFrom = garageId === 'mine' ? 'mygarage' : (fromScreen || 'nearby');
+  itemDetailFrom = fromScreen || (garageId === 'mine' ? 'mygarage' : 'nearby');
   const g = garageId==='mine' ? {id:'mine', ...myGarage} : nearbyGarages.find(x=>x.id===garageId);
   const item = garageId==='mine'
     ? myItems.find(i=>i.id===itemId)
@@ -738,7 +809,7 @@ async function openThread(convoId){
     .from('conversations')
     .select(`
       id, item_id, buyer_id, seller_id,
-      item:items(id,title,price,photos,categories,deleted_at),
+      item:items(id,title,price,photos,categories,status,deleted_at),
       buyer:garages!conversations_buyer_id_fkey(id,display_name,block),
       seller:garages!conversations_seller_id_fkey(id,display_name,block)
     `)
@@ -748,11 +819,17 @@ async function openThread(convoId){
   unreadConversationIds.delete(convoId);
   updateChatBadge();
   const otherParty = convo.buyer_id === session.user.id ? convo.seller : convo.buyer;
+  const isMyItem = session.user.id === convo.seller_id;
+  const itemGarageArg = isMyItem ? 'mine' : convo.seller_id;
 
   document.getElementById('threadWho').textContent = (otherParty?.display_name || 'Chat').toUpperCase();
   document.getElementById('threadItemStrip').innerHTML = `
-    <div class="ph">${mediaFill(convo.item)}</div>
-    <div><div class="t">${esc(convo.item.title)}</div><div class="p">${convo.item.deleted_at ? '<span style="color:var(--ink-soft); font-weight:600;">Listing removed</span>' : '$'+Number(convo.item.price).toFixed(2)}</div></div>`;
+    <div class="ph" onclick="openItem('${convo.item.id}','${itemGarageArg}','thread')">${mediaFill(convo.item)}</div>
+    <div style="flex:1; min-width:0;" onclick="openItem('${convo.item.id}','${itemGarageArg}','thread')">
+      <div class="t">${esc(convo.item.title)}</div>
+      <div class="p">${convo.item.deleted_at ? '<span style="color:var(--ink-soft); font-weight:600;">Listing removed</span>' : '$'+Number(convo.item.price).toFixed(2)}</div>
+    </div>
+    ${!convo.item.deleted_at ? `<div class="badge ${convo.item.status.toLowerCase()}" style="flex:0 0 auto;">${convo.item.status}</div>` : ''}`;
 
   await loadMessages(convoId);
   subscribeToThread(convoId);
@@ -772,7 +849,44 @@ function renderMessages(messages){
     return `<div class="msg ${mine?'me':'them'}">${esc(m.body)}<div class="msg-time">${time}</div></div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
+  checkForStatusSuggestion(messages);
 }
+function checkForStatusSuggestion(messages){
+  const banner = document.getElementById('statusSuggestionBanner');
+  if (!banner) return;
+  const item = currentConversation?.item;
+  const isSeller = currentConversation && session.user.id === currentConversation.seller_id;
+  if (!isSeller || !item || item.deleted_at || messages.length === 0) { banner.style.display = 'none'; return; }
+
+  const last = messages[messages.length - 1];
+  const text = (last.body || '').toLowerCase();
+  let suggested = null;
+  if (/\bsold\b/.test(text)) suggested = 'Sold';
+  else if (/\breserv/.test(text)) suggested = 'Reserved';
+
+  if (!suggested || item.status === suggested) { banner.style.display = 'none'; return; }
+
+  banner.style.display = 'flex';
+  banner.innerHTML = `
+    <span>💡 Mark "${esc(item.title)}" as ${suggested}?</span>
+    <div class="actions">
+      <button class="btn small" onclick="applyChatStatusSuggestion('${suggested}')">Yes</button>
+      <button class="btn small ghost" onclick="document.getElementById('statusSuggestionBanner').style.display='none'">Dismiss</button>
+    </div>`;
+}
+window.applyChatStatusSuggestion = async function(status){
+  const item = currentConversation?.item;
+  if (!item) return;
+  const { error } = await supabase.from('items').update({status}).eq('id', item.id);
+  if (error) { toast('Could not update status.'); console.error(error); return; }
+  item.status = status;
+  const badge = document.querySelector('#threadItemStrip .badge');
+  if (badge) { badge.className = 'badge ' + status.toLowerCase(); badge.textContent = status; }
+  const myIt = myItems.find(i=>i.id===item.id);
+  if (myIt) myIt.status = status;
+  document.getElementById('statusSuggestionBanner').style.display = 'none';
+  toast(`Marked as ${status}`);
+};
 function subscribeToThread(convoId){
   if (realtimeChannel) supabase.removeChannel(realtimeChannel);
   realtimeChannel = supabase
@@ -846,6 +960,17 @@ async function loadMyItems(){
   if (error) { console.error(error); return; }
   myItems = data || [];
 }
+function buildMyGarageStatusChips(){
+  const box = document.getElementById('myGarageStatusChips');
+  if (!box) return;
+  box.innerHTML = ['All','Available','Reserved','Sold'].map(s=>
+    `<div class="chip ${s===myGarageStatusFilter?'active':''}" onclick="setMyGarageStatusFilter('${s}')">${s}</div>`
+  ).join('');
+}
+window.setMyGarageStatusFilter = function(s){
+  myGarageStatusFilter = s;
+  renderMyGarage();
+};
 window.renderMyGarage = function(){
   document.getElementById('myBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').toUpperCase())}</div>`;
   document.getElementById('myAddrLine').textContent = `Blk ${myGarage.block}, ${myGarage.town}${myGarage.neighbourhood ? ' ('+myGarage.neighbourhood+')' : ''}`;
@@ -871,10 +996,15 @@ window.renderMyGarage = function(){
       <p>3 photos per item, a custom garage tagline, a Pro badge, and 3 free boosts every month — $2.90/mo.</p>
     </div>`;
 
+  buildMyGarageStatusChips();
   const box = document.getElementById('myItemsList');
-  const sortedItems = myItems.slice().sort((a,b) => (a.status==='Sold'?1:0) - (b.status==='Sold'?1:0));
-  box.innerHTML = sortedItems.length===0
+  let sortedItems = myGarageStatusFilter === 'All'
+    ? sortByStatusPriority(myItems)
+    : myItems.filter(it => it.status === myGarageStatusFilter);
+  box.innerHTML = myItems.length===0
     ? `<div class="empty"><div class="glyph">📦</div><p>Your garage is empty.<br>List your first item — someone in your block might need exactly that.</p></div>`
+    : sortedItems.length===0
+    ? `<div class="empty"><p>No ${myGarageStatusFilter.toLowerCase()} items.</p></div>`
     : sortedItems.map(it=>`
       <div class="my-item-row" style="position:relative;">
         ${isActivelyBoosted(it) ? '<div class="mi-boost-flag" style="top:6px; left:6px;">🔥</div>' : ''}

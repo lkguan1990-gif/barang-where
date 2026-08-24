@@ -132,6 +132,7 @@
       <div class="thread-header"><span class="back" onclick="show('nearby')">←</span><span style="font-weight:700; font-size:13px;">GARAGE</span></div>
       <div class="garage-header" id="garageHeaderBox"></div>
       <div class="searchbar"><input type="text" id="garageSearchInput" placeholder="Search this garage's items…" maxlength="60" oninput="debouncedRenderGarageItemGrid()"></div>
+      <div class="chips" id="garageStatusChips" style="margin-top:12px;"></div>
       <div class="pole-divider" style="margin-top:14px;"><span id="garageItemCount">Items</span></div>
       <div class="item-grid" id="garageItemGrid"></div>
     </div>
@@ -153,6 +154,7 @@
       <div class="thread-header"><span class="back" onclick="show('chats')">←</span><span style="font-weight:700; font-size:13px;" id="threadWho">CHAT</span></div>
       <div class="thread-item-strip" id="threadItemStrip"></div>
       <div class="messages" id="threadMessages"></div>
+      <div id="statusSuggestionBanner" class="status-suggestion-banner" style="display:none;"></div>
       <div class="composer">
         <input type="text" id="composerInput" placeholder="Type a message…" maxlength="500" onkeydown="if(event.key==='Enter')sendMsg()">
         <button onclick="sendMsg()">➤</button>
@@ -175,6 +177,7 @@
       <div id="proBannerSlot"></div>
       <div class="pole-divider"><span>Your listings</span></div>
       <button class="btn block" id="addItemBtn" onclick="editingItemId=null; show('additem')">＋ List a new item</button>
+      <div class="chips" id="myGarageStatusChips" style="margin-top:12px;"></div>
       <div id="myItemsList" style="margin-top:14px;"></div>
     </div>
 
