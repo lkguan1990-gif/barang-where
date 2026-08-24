@@ -145,8 +145,19 @@ async function route(){
     document.getElementById('screen-auth').style.display = 'flex';
     return;
   }
-  const { data: garage, error } = await supabase
+  let { data: garage, error } = await supabase
     .from('garages').select('*').eq('id', session.user.id).maybeSingle();
+  if (error) {
+    // After long inactivity (app backgrounded a while), the session's access
+    // token can be stale before Supabase's automatic refresh has caught up.
+    // Try an explicit refresh and retry once before giving up.
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed?.session) {
+      session = refreshed.session;
+      ({ data: garage, error } = await supabase
+        .from('garages').select('*').eq('id', session.user.id).maybeSingle());
+    }
+  }
   if (error) { toast('Could not load your garage — check your Supabase setup.'); console.error(error); return; }
 
   if (!garage) {
@@ -427,7 +438,7 @@ function garageCardHtml(g, query){
   return `
     <div class="garage-card" style="position:relative;" data-query="${esc(query)}" onclick="openGarage('${g.id}', this.dataset.query)">
       ${isBoosted ? '<div class="boost-tag">🔥 Boosted</div>' : ''}
-      <div class="garage-like-btn ${liked?'liked':''}" onclick="toggleSaveGarage('${g.id}', event)">${liked?'♥':'♡'}</div>
+      <div class="garage-like-btn ${liked?'liked':''}" data-garage-id="${g.id}" title="Like this garage — saves the whole seller, not a specific item" onclick="toggleSaveGarage('${g.id}', event)">${liked?'♥':'♡'}</div>
       <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="info">
         <div class="row1"><div class="name">${highlightMatch(g.display_name, query)}</div><div class="dist">${distLabel}</div></div>
@@ -467,7 +478,7 @@ window.openGarage = async function(id, carryoverQuery){
         <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
       </div>
     </div>
-    <div class="garage-header-like ${liked?'liked':''}" onclick="toggleSaveGarage('${id}', event)">${liked?'♥ Liked':'♡ Like this garage'}</div>`;
+    <div class="garage-header-like ${liked?'liked':''}" data-garage-id="${id}" onclick="toggleSaveGarage('${id}', event)">${liked?'♥ Liked':'♡ Like this garage'}</div>`;
 
   const searchBox = document.getElementById('garageSearchInput');
   searchBox.value = carryoverQuery || '';
@@ -502,7 +513,7 @@ function itemCardHtml(it, garageId, fromScreen, query){
   const statusClass = it.status.toLowerCase();
   const from = fromScreen || 'garage';
   return `
-  <div class="item-card" onclick="itemDetailFrom='${from}'; openItem('${it.id}','${garageId}')">
+  <div class="item-card" onclick="openItem('${it.id}','${garageId}','${from}')">
     <div class="item-photo" style="background:${colorFor(it.id)}22;">
       ${mediaFill(it)}
       ${isActivelyBoosted(it) ? '<div class="boost-tag" style="top:6px; left:6px; right:auto;">🔥</div>' : ''}
@@ -528,8 +539,8 @@ window.backFromItem = function(){
   else if (itemDetailFrom==='mygarage') show('mygarage');
   else show('nearby');
 };
-window.openItem = function(itemId, garageId){
-  if (garageId === 'mine') itemDetailFrom = 'mygarage';
+window.openItem = function(itemId, garageId, fromScreen){
+  itemDetailFrom = garageId === 'mine' ? 'mygarage' : (fromScreen || 'nearby');
   const g = garageId==='mine' ? {id:'mine', ...myGarage} : nearbyGarages.find(x=>x.id===garageId);
   const item = garageId==='mine'
     ? myItems.find(i=>i.id===itemId)
@@ -561,7 +572,7 @@ window.openItem = function(itemId, garageId){
   document.getElementById('itemDetailBox').innerHTML = `
     <div class="item-detail-photo" style="background:${c}22;" ontouchstart="handlePhotoTouchStart(event)" ontouchend="handlePhotoTouchEnd(event)">
       ${mainMedia}
-      ${isMine ? '' : `<div class="save-btn ${saved?'saved':''}" onclick="toggleSave('${itemId}', event)">${saved?'♥':'♡'}</div>`}
+      ${isMine ? '' : `<div class="save-btn ${saved?'saved':''}" data-item-id="${itemId}" onclick="toggleSave('${itemId}', event)">${saved?'♥':'♡'}</div>`}
       ${dots}
     </div>
     ${lockHint}
@@ -632,14 +643,22 @@ window.handlePhotoTouchEnd = function(e){
 };
 window.toggleSave = async function(itemId, evt){
   if (evt) evt.stopPropagation();
+  let nowSaved;
   if (savedItemIds.has(itemId)) {
     savedItemIds.delete(itemId);
+    nowSaved = false;
     await supabase.from('saved_items').delete().match({user_id: session.user.id, item_id: itemId});
   } else {
     savedItemIds.add(itemId);
+    nowSaved = true;
     await supabase.from('saved_items').insert({user_id: session.user.id, item_id: itemId});
   }
-  openItem(itemId, currentGarageId);
+  // Lightweight update: toggle just the heart, don't rebuild the whole
+  // item detail page (which was re-loading the photo on every like/unlike).
+  document.querySelectorAll(`.save-btn[data-item-id="${itemId}"]`).forEach(btn=>{
+    btn.classList.toggle('saved', nowSaved);
+    btn.textContent = nowSaved ? '♥' : '♡';
+  });
 };
 async function loadSaved(){
   const { data } = await supabase.from('saved_items').select('item_id').eq('user_id', session.user.id);
@@ -651,20 +670,35 @@ async function loadSavedGarages(){
 }
 window.toggleSaveGarage = async function(garageId, evt){
   if (evt) evt.stopPropagation();
+  let nowLiked;
   if (savedGarageIds.has(garageId)) {
     savedGarageIds.delete(garageId);
+    nowLiked = false;
     await supabase.from('saved_garages').delete().match({user_id: session.user.id, garage_id: garageId});
   } else {
     savedGarageIds.add(garageId);
+    nowLiked = true;
     await supabase.from('saved_garages').insert({user_id: session.user.id, garage_id: garageId});
   }
-  // Refresh whatever's currently visible so the heart state updates immediately.
-  if (currentScreen === 'garage') {
-    const existingQuery = document.getElementById('garageSearchInput')?.value || '';
-    openGarage(garageId, existingQuery);
+  // Lightweight update: toggle just this garage's heart button(s) directly.
+  // Previously this called a full renderGarageList()/openGarage(), which
+  // re-rendered every card's photos too -- causing a visible flash across
+  // the whole list, not just the one card being liked.
+  document.querySelectorAll(`.garage-like-btn[data-garage-id="${garageId}"]`).forEach(btn=>{
+    btn.classList.toggle('liked', nowLiked);
+    btn.textContent = nowLiked ? '♥' : '♡';
+  });
+  document.querySelectorAll(`.garage-header-like[data-garage-id="${garageId}"]`).forEach(btn=>{
+    btn.classList.toggle('liked', nowLiked);
+    btn.textContent = nowLiked ? '♥ Liked' : '♡ Like this garage';
+  });
+  // If viewing the Liked Garages tab and just unliked one, it no longer
+  // belongs there -- remove just that card, not the whole list.
+  if (currentScreen === 'liked' && !nowLiked) {
+    document.querySelectorAll(`#likedGaragesGrid .garage-like-btn[data-garage-id="${garageId}"]`).forEach(btn=>{
+      btn.closest('.garage-card')?.remove();
+    });
   }
-  else if (currentScreen === 'nearby') renderGarageList();
-  else if (currentScreen === 'liked') renderLikedGarages();
 };
 
 /* =========================================================
@@ -828,7 +862,7 @@ window.renderMyGarage = function(){
     ? `<div class="empty"><div class="glyph">📦</div><p>Your garage is empty.<br>List your first item — someone in your block might need exactly that.</p></div>`
     : sortedItems.map(it=>`
       <div class="my-item-row" style="position:relative;">
-        ${isActivelyBoosted(it) ? '<div class="mi-boost-flag" style="top:-6px; left:34px;">🔥</div>' : ''}
+        ${isActivelyBoosted(it) ? '<div class="mi-boost-flag" style="top:6px; left:6px;">🔥</div>' : ''}
         <div class="row-top">
           <div class="ph" onclick="openItem('${it.id}','mine')">${mediaFill(it)}</div>
           <div class="body" onclick="openItem('${it.id}','mine')">
