@@ -64,6 +64,8 @@ let formCategories = [];
 let savedItemIds = new Set();
 let savedGarageIds = new Set();
 let radiusKm = 1; // default 1km; null means "Any distance"
+let radiusKmBeforeSearch; // remembers the radius selected before a search started, so it can be restored after
+let conditionFilter = 'All'; // condition filter for item search results (New/Like new/Good/Fair)
 const RADIUS_OPTIONS = [1, 3, null]; // null = "Any"
 
 /* =========================================================
@@ -384,10 +386,12 @@ window.setCategory = function(c){ activeCategory = c; buildCategoryChips(); rend
 function buildRadiusChips(){
   const box = document.getElementById('radiusChips');
   if (!box) return;
+  const searching = radiusKmBeforeSearch !== undefined;
   box.innerHTML = RADIUS_OPTIONS.map(km => {
     const label = km === null ? 'Any' : (km < 1 ? (km*1000)+'m' : km+'km');
     const active = km === radiusKm;
-    return `<div class="chip ${active?'active':''}" onclick="setRadius(${km === null ? 'null' : km})">${label}</div>`;
+    const disabledAttr = searching ? 'style="opacity:0.4; pointer-events:none;"' : '';
+    return `<div class="chip ${active?'active':''}" ${disabledAttr} onclick="setRadius(${km === null ? 'null' : km})">${label}</div>`;
   }).join('');
 }
 window.setRadius = function(km){ radiusKm = km; buildRadiusChips(); renderGarageList(); };
@@ -400,6 +404,19 @@ window.debouncedRenderGarageList = function(){
 function renderGarageList(){
   const rawQuery = (document.getElementById('searchInput')?.value || '').trim();
   const q = rawQuery.toLowerCase();
+
+  if (q && radiusKmBeforeSearch === undefined) {
+    // Just started searching -- remember the current radius and visually
+    // switch to Any, since search intentionally casts wide regardless of it.
+    radiusKmBeforeSearch = radiusKm;
+    radiusKm = null;
+    buildRadiusChips();
+  } else if (!q && radiusKmBeforeSearch !== undefined) {
+    // Search cleared -- restore whatever radius was active before.
+    radiusKm = radiusKmBeforeSearch;
+    radiusKmBeforeSearch = undefined;
+    buildRadiusChips();
+  }
   let list = nearbyGarages.slice().sort((a,b)=>{
     const aBoost = (a.items||[]).some(i=>isActivelyBoosted(i)) ? 1 : 0;
     const bBoost = (b.items||[]).some(i=>isActivelyBoosted(i)) ? 1 : 0;
@@ -427,8 +444,7 @@ function renderGarageList(){
     const matchingItems = items.filter(it => it.status!=='Sold' &&
       ((it.title||'').toLowerCase().includes(q) || (it.categories||[]).some(cat=>cat.toLowerCase().includes(q))));
     if (matchingItems.length > 0) {
-      const cheapest = matchingItems.reduce((min, it) => Number(it.price) < Number(min.price) ? it : min);
-      return { g, matchType: 'item', priceItem: cheapest };
+      return { g, matchType: 'item', matchingItems };
     }
     if (name.includes(q) || block.includes(q) || town.includes(q)) return { g, matchType: 'garage' };
     return null;
@@ -452,20 +468,33 @@ function renderGarageList(){
   }
 
   // Active search: split into Items (with price) and Garages (name/block match only).
-  const itemMatches = classified.filter(m=>m.matchType==='item');
+  const itemMatchesRaw = classified.filter(m=>m.matchType==='item');
   const garageMatches = classified.filter(m=>m.matchType==='garage');
+
+  // Condition filter only applies to item-type matches -- a garage/name
+  // match has no single item's condition to filter by.
+  let itemMatches = itemMatchesRaw;
+  if (conditionFilter !== 'All') {
+    itemMatches = itemMatchesRaw
+      .map(m => ({ ...m, matchingItems: m.matchingItems.filter(it=>it.condition===conditionFilter) }))
+      .filter(m => m.matchingItems.length > 0);
+  }
+
   const total = itemMatches.length + garageMatches.length;
   countLabel.textContent = `${total} result${total===1?'':'s'} match "${rawQuery}"`;
 
-  if (total===0){
+  if (itemMatchesRaw.length===0 && garageMatches.length===0){
     box.innerHTML = `<div class="empty"><p>No garages match yet.<br>Try a wider radius, a different search, or another category.</p></div>`;
     return;
   }
 
   let html = '';
-  if (itemMatches.length>0){
+  if (itemMatchesRaw.length>0){
     html += `<div class="pole-divider" style="margin-top:0;"><span>ITEMS</span></div>`;
-    html += itemMatches.map(m=>garageCardHtml(m.g, rawQuery, m.priceItem)).join('');
+    html += `<div class="chips" style="margin-bottom:10px;">${conditionChipsHtml()}</div>`;
+    html += itemMatches.length>0
+      ? itemMatches.map(m=>garageCardHtml(m.g, rawQuery, m.matchingItems)).join('')
+      : `<div class="empty"><p>No ${conditionFilter.toLowerCase()} condition items match "${esc(rawQuery)}".</p></div>`;
   }
   if (garageMatches.length>0){
     html += `<div class="pole-divider"><span>GARAGES</span></div>`;
@@ -473,6 +502,15 @@ function renderGarageList(){
   }
   box.innerHTML = html;
 }
+function conditionChipsHtml(){
+  return ['All','New','Like new','Good','Fair'].map(c=>
+    `<div class="chip ${c===conditionFilter?'active':''}" onclick="setConditionFilter('${c}')">${c}</div>`
+  ).join('');
+}
+window.setConditionFilter = function(c){
+  conditionFilter = c;
+  renderGarageList();
+};
 function highlightMatch(rawText, query){
   if (!query) return esc(rawText || '');
   const text = rawText || '';
@@ -484,16 +522,25 @@ function highlightMatch(rawText, query){
   const after = text.slice(idx + query.length);
   return esc(before) + '<mark class="search-hl">' + esc(match) + '</mark>' + esc(after);
 }
-function garageCardHtml(g, query, priceItem){
+function garageCardHtml(g, query, matchingItems){
   query = query || '';
   const c = colorFor(g.id);
-  const items = (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || (it.categories||[]).includes(activeCategory)));
-  const preview = items.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${isActivelyBoosted(it)?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
-  const more = (g.items||[]).length>4 ? `<div class="mini-item more">+${g.items.length-4}</div>` : '';
+  const displayItems = matchingItems
+    ? matchingItems
+    : (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || (it.categories||[]).includes(activeCategory)));
+  const preview = displayItems.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${isActivelyBoosted(it)?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
+  const more = displayItems.length>4 ? `<div class="mini-item more">+${displayItems.length-4}</div>` : '';
   const isBoosted = (g.items||[]).some(i=>isActivelyBoosted(i));
   const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : formatDistance(g.distance));
   const liked = savedGarageIds.has(g.id);
-  const priceLabel = priceItem ? `<div class="price-indicator">${esc(priceItem.condition)} from S$${Number(priceItem.price).toFixed(0)}</div>` : '';
+  const itemCountLabel = matchingItems
+    ? `${matchingItems.length} item${matchingItems.length===1?'':'s'} match`
+    : `${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}`;
+  let priceLabel = '';
+  if (matchingItems && matchingItems.length) {
+    const cheapest = matchingItems.reduce((min, it) => Number(it.price) < Number(min.price) ? it : min);
+    priceLabel = `<div class="price-indicator">${esc(cheapest.condition)} condition from S$${Number(cheapest.price).toFixed(0)}</div>`;
+  }
   return `
     <div class="garage-card" style="position:relative;" data-query="${esc(query)}" onclick="openGarage('${g.id}', this.dataset.query)">
       ${isBoosted ? '<div class="boost-tag">🔥 Boosted</div>' : ''}
@@ -501,7 +548,7 @@ function garageCardHtml(g, query, priceItem){
       <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="info">
         <div class="row1"><div class="name">${highlightMatch(g.display_name, query)}</div><div class="dist">${distLabel}</div></div>
-        <div class="addr">Blk ${highlightMatch(g.block, query)}, ${townLabel(g)} · ${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}</div>
+        <div class="addr">Blk ${highlightMatch(g.block, query)}, ${townLabel(g)} · ${itemCountLabel}</div>
         <div class="preview-row"><div class="preview">${preview}${more}</div>${priceLabel}</div>
       </div>
     </div>`;
