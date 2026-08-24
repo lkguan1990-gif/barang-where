@@ -741,8 +741,47 @@ window.openItem = function(itemId, garageId, fromScreen){
       ${isMine
         ? `<button class="btn block ghost" onclick="openEditItem('${itemId}')">✏️ Edit this listing</button>`
         : `<button class="btn block red" onclick="startChat('${itemId}','${g.id}')">💬 Message ${esc(g.display_name)}</button>`}
-    </div>`;
+    </div>
+    ${isMine ? '' : `
+    <div id="reportSection">
+      <div class="report-link" onclick="toggleReportForm()">🚩 Report this listing</div>
+      <div id="reportForm" style="display:none;"></div>
+    </div>`}`;
   show('item');
+};
+window.toggleReportForm = function(){
+  const form = document.getElementById('reportForm');
+  if (form.style.display !== 'none') { form.style.display = 'none'; return; }
+  form.style.display = 'block';
+  form.innerHTML = `
+    <select id="reportReason">
+      <option>Prohibited item</option>
+      <option>Offensive</option>
+      <option>Fake or counterfeit</option>
+      <option>Spam</option>
+      <option>Scam attempt</option>
+      <option>Other</option>
+    </select>
+    <textarea id="reportDetails" placeholder="Any extra details (optional)" maxlength="300"></textarea>
+    <button class="btn small" onclick="submitReport('${currentItemId}')">Submit report</button>
+    <div id="reportMsg" class="auth-msg"></div>`;
+};
+window.submitReport = async function(itemId){
+  const reason = document.getElementById('reportReason').value;
+  const details = document.getElementById('reportDetails').value.trim();
+  const msgEl = document.getElementById('reportMsg');
+  const { error } = await supabase.from('reports').insert({
+    item_id: itemId, reporter_id: session.user.id, reason, details
+  });
+  if (error) {
+    msgEl.className = 'auth-msg error';
+    msgEl.textContent = error.code === '23505'
+      ? 'You already reported this listing.'
+      : 'Could not submit report. Please try again.';
+    if (error.code !== '23505') console.error(error);
+    return;
+  }
+  document.getElementById('reportForm').innerHTML = `<div class="auth-msg">Thanks, we'll review this listing.</div>`;
 };
 window.openLightbox = function(src, evt){
   if (evt) evt.stopPropagation();
