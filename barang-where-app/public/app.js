@@ -539,7 +539,8 @@ function garageCardHtml(g, query, matchingItems){
   let priceLabel = '';
   if (matchingItems && matchingItems.length) {
     const cheapest = matchingItems.reduce((min, it) => Number(it.price) < Number(min.price) ? it : min);
-    priceLabel = `<div class="price-indicator">${esc(cheapest.condition)} condition from S$${Number(cheapest.price).toFixed(0)}</div>`;
+    const conditionLabel = (conditionFilter === 'All' && matchingItems.length > 1) ? 'Various' : cheapest.condition;
+    priceLabel = `<div class="price-indicator">${esc(conditionLabel)} condition from S$${Number(cheapest.price).toFixed(0)}</div>`;
   }
   return `
     <div class="garage-card" style="position:relative;" data-query="${esc(query)}" onclick="openGarage('${g.id}', this.dataset.query)">
@@ -711,9 +712,8 @@ window.openItem = function(itemId, garageId, fromScreen){
     ${lockHint}
     <div class="idet-title">${esc(item.title)}</div>
     <div class="idet-price">$${Number(item.price).toFixed(2)}</div>
+    <div class="idet-condition-line">In ${esc(item.condition)} condition, listed under ${esc((item.categories||[]).join(', '))}.</div>
     <div class="idet-badges">
-      <div class="badge">${esc(item.condition)}</div>
-      ${(item.categories||[]).map(cat=>`<div class="badge">${esc(cat)}</div>`).join('')}
       <div class="badge ${item.status.toLowerCase()}">${item.status}</div>
     </div>
     <div class="idet-desc">${esc(item.description)}</div>
@@ -1254,13 +1254,14 @@ window.submitItem = async function(){
 
     // Upload any newly added photos.
     const newUrls = [];
+    let uploadFailures = 0;
     for (const p of newFiles) {
       const ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${session.user.id}/${editingItemId}-${Date.now()}-${newUrls.length}.${ext}`;
       const { error: upErr } = await supabase.storage.from('item-photos').upload(path, p.file, {
         cacheControl: '3600', upsert: false, contentType: p.file.type
       });
-      if (upErr) { console.error(upErr); continue; }
+      if (upErr) { console.error('Photo upload failed:', upErr); uploadFailures++; continue; }
       const { data: pub } = supabase.storage.from('item-photos').getPublicUrl(path);
       newUrls.push(pub.publicUrl);
     }
@@ -1274,7 +1275,9 @@ window.submitItem = async function(){
     Object.assign(original, { title, price, categories, condition, description, photos: finalPhotos });
     const savedId = editingItemId;
     editingItemId = null;
-    toast('Changes saved!');
+    toast(uploadFailures > 0
+      ? `Saved, but ${uploadFailures} photo${uploadFailures===1?'':'s'} failed to upload — try adding ${uploadFailures===1?'it':'them'} again.`
+      : 'Changes saved!');
     openItem(savedId, 'mine');
     return;
   }
@@ -1290,13 +1293,15 @@ window.submitItem = async function(){
 
   // 2. Upload any photos to Storage, under a per-user folder.
   const urls = [];
+  let uploadFailures = 0;
+  let lastUploadError = null;
   for (const p of formPhotos) {
     const ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `${session.user.id}/${item.id}-${Date.now()}-${urls.length}.${ext}`;
     const { error: upErr } = await supabase.storage.from('item-photos').upload(path, p.file, {
       cacheControl: '3600', upsert: false, contentType: p.file.type
     });
-    if (upErr) { console.error(upErr); continue; }
+    if (upErr) { console.error('Photo upload failed:', upErr); uploadFailures++; lastUploadError = upErr; continue; }
     const { data: pub } = supabase.storage.from('item-photos').getPublicUrl(path);
     urls.push(pub.publicUrl);
   }
@@ -1309,7 +1314,11 @@ window.submitItem = async function(){
 
   myItems.unshift(item);
   show('mygarage');
-  toast('Listed! Neighbours can see it now.');
+  if (uploadFailures > 0) {
+    toast(`Listed, but ${uploadFailures} photo${uploadFailures===1?'':'s'} failed to upload (${lastUploadError?.message || 'unknown error'}). You can add ${uploadFailures===1?'it':'them'} via Edit.`);
+  } else {
+    toast('Listed! Neighbours can see it now.');
+  }
 };
 
 /* =========================================================
