@@ -298,12 +298,17 @@ function subscribeToGlobalMessages(){
    NEARBY
 ========================================================= */
 window.loadNearby = async function(){
+  const searchBox = document.getElementById('searchInput');
   document.getElementById('resultsCount').textContent = 'Loading…';
+  searchBox.disabled = true;
+  searchBox.placeholder = 'Loading nearby garages…';
   renderLocationWarning();
   const { data, error } = await supabase
     .from('garages')
     .select('*, items(*)')
     .neq('id', session.user.id);
+  searchBox.disabled = false;
+  searchBox.placeholder = 'Search items or garages…';
   if (error) { toast('Could not load nearby garages.'); console.error(error); return; }
 
   nearbyGarages = (data || []).map(g => ({
@@ -378,6 +383,11 @@ function buildRadiusChips(){
 }
 window.setRadius = function(km){ radiusKm = km; buildRadiusChips(); renderGarageList(); };
 
+let searchDebounceTimer = null;
+window.debouncedRenderGarageList = function(){
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(renderGarageList, 120);
+};
 function renderGarageList(){
   const rawQuery = (document.getElementById('searchInput')?.value || '').trim();
   const q = rawQuery.toLowerCase();
@@ -485,6 +495,11 @@ window.openGarage = async function(id, carryoverQuery){
   renderGarageItemGrid();
   show('garage');
   if (carryoverQuery) toast(`Showing items matching "${carryoverQuery}"`);
+};
+let garageSearchDebounceTimer = null;
+window.debouncedRenderGarageItemGrid = function(){
+  clearTimeout(garageSearchDebounceTimer);
+  garageSearchDebounceTimer = setTimeout(renderGarageItemGrid, 120);
 };
 window.renderGarageItemGrid = function(){
   const query = (document.getElementById('garageSearchInput')?.value || '').trim();

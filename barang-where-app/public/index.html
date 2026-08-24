@@ -118,7 +118,7 @@
           <div class="where">You're near <b id="estateName">—</b></div>
           <div class="iconbtn" style="width:30px;height:30px;font-size:12px;" onclick="loadNearby()">↻</div>
         </div>
-        <div class="searchbar"><input type="text" id="searchInput" placeholder="Search items or garages…" oninput="renderGarageList()" maxlength="60"></div>
+        <div class="searchbar"><input type="text" id="searchInput" placeholder="Search items or garages…" oninput="debouncedRenderGarageList()" maxlength="60"></div>
         <div class="chips" id="categoryChips"></div>
         <div class="radius-label">Distance</div>
         <div class="chips" id="radiusChips"></div>
@@ -131,7 +131,7 @@
     <div class="screen" id="screen-garage">
       <div class="thread-header"><span class="back" onclick="show('nearby')">←</span><span style="font-weight:700; font-size:13px;">GARAGE</span></div>
       <div class="garage-header" id="garageHeaderBox"></div>
-      <div class="searchbar"><input type="text" id="garageSearchInput" placeholder="Search this garage's items…" maxlength="60" oninput="renderGarageItemGrid()"></div>
+      <div class="searchbar"><input type="text" id="garageSearchInput" placeholder="Search this garage's items…" maxlength="60" oninput="debouncedRenderGarageItemGrid()"></div>
       <div class="pole-divider" style="margin-top:14px;"><span id="garageItemCount">Items</span></div>
       <div class="item-grid" id="garageItemGrid"></div>
     </div>
