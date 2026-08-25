@@ -341,8 +341,12 @@ window.loadNearby = async function(){
     items: (g.items || []).filter(it => !it.deleted_at),
     distance: haversineMeters(myGarage.lat, myGarage.lng, g.lat, g.lng)
   }));
-  document.getElementById('estateName').textContent = myGarage.town || '—';
-  document.getElementById('topbarSub').textContent = '📍 ' + (myGarage.town || 'Nearby');
+  const isLiveLocation = myGarage.location_mode === 'live';
+  const townName = myGarage.town || '—';
+  document.getElementById('topbarSub').textContent = (isLiveLocation ? '📍 Live: ' : '📍 Home: ') + townName;
+  document.getElementById('locationSummary').textContent = isLiveLocation
+    ? `Your garage location is currently ${townName}, moving with you since Live location is on.`
+    : `Your garage location is set to ${townName}, based on your home location in Profile.`;
   renderGarageList();
 };
 function renderLocationWarning(){
@@ -1074,7 +1078,11 @@ window.setMyGarageStatusFilter = function(s){
 };
 window.renderMyGarage = function(){
   document.getElementById('myBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').toUpperCase())}</div>`;
+  document.getElementById('myGarageNameText').textContent = myGarage.display_name || 'Your Garage';
   document.getElementById('myAddrLine').textContent = `Blk ${myGarage.block}, ${myGarage.town}${myGarage.neighbourhood ? ' ('+myGarage.neighbourhood+')' : ''}`;
+  document.getElementById('myTaglineDisplay').textContent = myGarage.is_pro
+    ? (myGarage.tagline || 'Add a custom tagline below to make your garage stand out.')
+    : 'Welcome to my garage — have a look around!';
   document.getElementById('myItemCount').textContent = myItems.filter(i=>i.status!=='Sold').length;
   document.getElementById('mySoldCount').textContent = myItems.filter(i=>i.status==='Sold').length;
   document.getElementById('proBadgeSlot').innerHTML = myGarage.is_pro ? '<span class="pro-badge">★ PRO</span>' : '';
@@ -1094,7 +1102,7 @@ window.renderMyGarage = function(){
     <div class="pro-banner" onclick="show('pro')">
       <div class="top"><div class="kicker">Sell more, often?</div><div style="font-size:18px;">→</div></div>
       <h3>Go Pro Garage</h3>
-      <p>3 photos per item, a custom garage tagline, a Pro badge, and 3 free boosts every month — $2.90/mo.</p>
+      <p>Every extra photo takes extra storage space, which costs us to host — so 3 photos per item (up from the free 1), a custom garage tagline, a Pro badge, and 3 free boosts every month — $2.90/mo.</p>
     </div>`;
 
   buildMyGarageStatusChips();
@@ -1256,12 +1264,12 @@ function renderPhotoUploadRow(){
   if (formPhotos.length < cap){
     html += `<div class="photo-slot" onclick="document.getElementById('photoFileInput').click()"><div class="plus">＋</div></div>`;
   } else if (!myGarage.is_pro){
-    html += `<div class="photo-slot" style="cursor:pointer; border-color:var(--hdb-red);" onclick="show('pro')"><div class="lockmsg">🔒 Pro for more photos</div></div>`;
+    html += `<div class="photo-slot" style="cursor:pointer; border-color:var(--hdb-red);" onclick="show('pro')"><div class="lockmsg">🔒 Needs Pro storage</div></div>`;
   }
   row.innerHTML = html;
   document.getElementById('photoHint').innerHTML = myGarage.is_pro
     ? `Pro Garage: up to 3 photos per item. ${formPhotos.length}/3 added.`
-    : `Everyone gets 1 free photo per item. <span style="color:var(--zinc-blue); font-weight:700; cursor:pointer;" onclick="show('pro')">Pro Garage</span> unlocks up to 3.`;
+    : `Everyone gets 1 free photo per item — extra photos need extra storage space to host, which is why <span style="color:var(--zinc-blue); font-weight:700; cursor:pointer;" onclick="show('pro')">Pro Garage</span> (unlocking up to 3) is a paid upgrade.`;
 }
 window.handlePhotoFile = function(input){
   const file = input.files && input.files[0];

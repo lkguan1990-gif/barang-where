@@ -115,7 +115,7 @@
       <div id="nearbyContent">
         <div id="locationWarningSlot"></div>
         <div class="estate-banner">
-          <div class="where">You're near <b id="estateName">—</b></div>
+          <div class="where" id="locationSummary">—</div>
           <div class="iconbtn" style="width:30px;height:30px;font-size:12px;" onclick="loadNearby()">↻</div>
         </div>
         <div class="searchbar"><input type="text" id="searchInput" placeholder="Search items or garages…" oninput="debouncedRenderGarageList()" maxlength="60"></div>
@@ -166,8 +166,9 @@
       <div class="my-header">
         <div class="block-tile sz-hero" id="myBlockTile" style="background:var(--hdb-red);"></div>
         <div class="who">
-          <div class="name">Your Garage <span id="proBadgeSlot"></span></div>
+          <div class="name"><span id="myGarageNameText">Your Garage</span> <span id="proBadgeSlot"></span></div>
           <div class="addr" id="myAddrLine">—</div>
+          <div class="my-tagline" id="myTaglineDisplay"></div>
         </div>
       </div>
       <div class="stat-strip">
@@ -230,7 +231,7 @@
           <p>Listing is always free and unlimited — Pro adds extras. $2.90/mo.</p>
         </div>
         <ul class="feature-list">
-          <li><span class="tick">✓</span><div><b>3 photos per item</b></div></li>
+          <li><span class="tick">✓</span><div><b>3 photos per item</b><div style="font-size:11.5px; color:var(--ink-soft); font-weight:400; margin-top:2px;">Extra photos need extra storage space to host — that's what this covers.</div></div></li>
           <li><span class="tick">✓</span><div><b>Custom garage tagline</b></div></li>
           <li><span class="tick">✓</span><div><b>Pro badge on your garage</b></div></li>
           <li><span class="tick">✓</span><div><b>3 free boost credits / month</b></div></li>
