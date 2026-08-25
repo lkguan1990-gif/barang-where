@@ -1252,9 +1252,12 @@ window.renderMyGarage = function(){
   document.getElementById('myBlockTile').innerHTML = `<div class="num">${esc(myGarage.block)}</div><div class="town">${esc((myGarage.town||'').toUpperCase())}</div>`;
   document.getElementById('myGarageNameText').textContent = myGarage.display_name || 'Your Garage';
   document.getElementById('myAddrLine').textContent = `Blk ${myGarage.block}, ${myGarage.town}${myGarage.neighbourhood ? ' ('+myGarage.neighbourhood+')' : ''}`;
-  document.getElementById('myTaglineDisplay').textContent = myGarage.is_pro
-    ? (myGarage.tagline || 'Add a custom tagline below to make your garage stand out.')
-    : 'Welcome to my garage — have a look around!';
+  document.getElementById('myTaglineSection').innerHTML = myGarage.is_pro
+    ? `<div style="display:flex; gap:6px; margin-top:6px;">
+         <input type="text" id="taglineInput" maxlength="80" value="${esc(myGarage.tagline||'')}" placeholder="Add a custom tagline…" style="flex:1; font-size:12px; padding:6px 9px;">
+         <button class="btn small" style="flex:0 0 auto;" onclick="saveTagline()">Save</button>
+       </div>`
+    : `<div class="my-tagline">Welcome to my garage — have a look around!</div>`;
   document.getElementById('myItemCount').textContent = myItems.filter(i=>i.status!=='Sold').length;
   document.getElementById('mySoldCount').textContent = myItems.filter(i=>i.status==='Sold').length;
   document.getElementById('proBadgeSlot').innerHTML = myGarage.is_pro ? '<span class="pro-badge">★ PRO</span>' : '';
@@ -1265,11 +1268,6 @@ window.renderMyGarage = function(){
       <div class="top"><div class="kicker">Pro Garage active</div><div style="font-size:18px;">★</div></div>
       <h3>You're all set</h3>
       <p>3 photos per item, a custom tagline, and ${myGarage.free_boost_credits} free boost credit${myGarage.free_boost_credits===1?'':'s'} left this month.</p>
-    </div>
-    <div class="field" style="margin-top:14px;">
-      <label>Garage tagline <span style="text-transform:none; font-weight:500;">— shown on your garage page</span></label>
-      <input type="text" id="taglineInput" maxlength="80" value="${esc(myGarage.tagline||'')}">
-      <button class="btn small" style="margin-top:8px;" onclick="saveTagline()">Save tagline</button>
     </div>` : `
     <div class="pro-banner" onclick="show('pro')">
       <div class="top"><div class="kicker">Sell more, often?</div><div style="font-size:18px;">→</div></div>

@@ -205,7 +205,7 @@
   }
   .status-tag.available{background:var(--olive); color:#fff;}
   .status-tag.reserved{background:var(--sunny); color:var(--ink);}
-  .status-tag.sold{background:var(--ink); color:var(--terrazzo);}
+  .status-tag.sold{background:var(--hdb-red); color:#fff;}
   .item-body{padding:9px 10px 11px;}
   .item-title{font-size:12.5px; font-weight:700; line-height:1.3; min-height:32px; max-height:32px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
   .item-price{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; color:var(--price-brown); margin-top:5px;}
@@ -273,7 +273,7 @@
   .badge{font-size:11px; font-weight:700; padding:5px 10px; border-radius:999px; border:1.5px solid var(--ink); text-transform:uppercase; letter-spacing:0.02em;}
   .badge.available{background:var(--olive); color:#fff; border-color:var(--olive);}
   .badge.reserved{background:var(--sunny); color:var(--ink); border-color:var(--sunny);}
-  .badge.sold{background:var(--ink); color:var(--terrazzo); border-color:var(--ink);}
+  .badge.sold{background:var(--hdb-red); color:#fff; border-color:var(--hdb-red);}
   .idet-desc{font-size:13.5px; line-height:1.6; color:var(--ink-soft); margin-top:14px;}
   .report-link{font-size:11.5px; color:var(--ink-soft); text-align:center; margin-top:18px; cursor:pointer; text-decoration:underline;}
   #reportForm{margin-top:10px; padding:12px; background:var(--card); border:1.5px solid var(--ink); border-radius:10px;}
@@ -337,11 +337,11 @@
 
   /* ---------- My Garage ---------- */
   .my-header{
-    display:flex; gap:14px; align-items:center; margin-top:4px;
+    display:flex; gap:14px; align-items:flex-start; margin-top:4px;
   }
   .my-header .who{flex:1;}
-  .my-header .name{font-size:19px; font-weight:800;}
-  .my-header .addr{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .my-header .name{font-size:19px; font-weight:800; line-height:1.6;}
+  .my-header .addr{font-size:12px; color:var(--ink-soft); margin-top:4px;}
   .my-header .my-tagline{font-size:12px; color:var(--ink-soft); font-style:italic; margin-top:6px; line-height:1.4;}
   .stat-strip{display:flex; gap:10px; margin-top:16px;}
   .stat-box{flex:1; background:var(--card); border:2px solid var(--ink); border-radius:10px; padding:10px; text-align:center;}
@@ -369,7 +369,7 @@
   .status-pill.active{background:var(--ink); color:var(--terrazzo); border-color:var(--ink);}
   .status-pill.active.available{background:var(--olive); color:#fff; border-color:var(--olive);}
   .status-pill.active.reserved{background:var(--sunny); color:var(--ink); border-color:var(--sunny);}
-  .status-pill.active.sold{background:var(--ink); color:var(--terrazzo);}
+  .status-pill.active.sold{background:var(--hdb-red); color:#fff;}
   .status-pill.active.mode-fixed{background:var(--zinc-blue); color:#fff; border-color:var(--zinc-blue);}
   .status-pill.active.mode-live{background:var(--sunny); color:var(--ink); border-color:var(--sunny);}
   .del-x{cursor:pointer; font-size:16px; color:var(--ink-soft); padding:4px;}
@@ -409,18 +409,18 @@
 
   /* ---------- Pro upsell banner ---------- */
   .pro-banner{
-    margin-top:16px; padding:16px; border-radius:14px; border:2px solid var(--ink);
+    margin-top:14px; padding:12px 14px; border-radius:12px; border:2px solid var(--ink);
     background:linear-gradient(135deg, var(--ink) 0%, #33392a 100%); color:var(--terrazzo);
     box-shadow:var(--shadow); cursor:pointer;
   }
   .pro-banner .top{display:flex; align-items:center; justify-content:space-between;}
-  .pro-banner .kicker{font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.08em; color:var(--sunny); font-weight:700; text-transform:uppercase;}
-  .pro-banner h3{font-family:'Anton',sans-serif; font-size:18px; margin:6px 0 4px; letter-spacing:0.01em;}
-  .pro-banner p{font-size:12px; color:#c9c6b8; margin:0 0 12px; line-height:1.5;}
+  .pro-banner .kicker{font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:0.08em; color:var(--sunny); font-weight:700; text-transform:uppercase;}
+  .pro-banner h3{font-family:'Anton',sans-serif; font-size:15px; margin:4px 0 3px; letter-spacing:0.01em;}
+  .pro-banner p{font-size:11px; color:#c9c6b8; margin:0; line-height:1.45;}
   .pro-badge{
-    font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:800; letter-spacing:0.05em;
-    background:var(--sunny); color:var(--ink); padding:6px 11px; border-radius:7px; margin-left:8px; vertical-align:middle;
-    border:2px solid var(--ink); box-shadow:0 2px 0 rgba(0,0,0,0.25);
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:800; letter-spacing:0.05em;
+    background:var(--sunny); color:var(--ink); padding:4px 9px; border-radius:6px; margin-left:6px; vertical-align:middle;
+    border:1.5px solid var(--ink); box-shadow:0 2px 0 rgba(0,0,0,0.25);
   }
 
   /* ---------- Pricing cards (boost + pro) ---------- */
