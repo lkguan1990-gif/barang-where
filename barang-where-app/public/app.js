@@ -402,10 +402,7 @@ window.loadNearby = async function(){
 
   document.getElementById('topbarSub').textContent = browsingElsewhere
     ? `${garageTownName} · browsing from ${browseTownName}`
-    : garageTownName;
-  document.getElementById('locationSummary').textContent = browsingElsewhere
-    ? `Your garage at ${garageTownName}, you are browsing from ${browseTownName} now.`
-    : 'You are browsing from your home location.';
+    : `${garageTownName} · browsing from your home`;
   renderGarageList();
 };
 window.toggleGarageDetailsForm = function(){
