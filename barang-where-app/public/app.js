@@ -51,6 +51,7 @@ let locationJustSwitched = false; // true right after switching Fixed/Live until
 let onboardingLocationCaptured = null; // null = not tried yet, false = denied/failed, {lat,lng} = captured
 let currentGarageItemsCache = [];
 let garageStatusFilter = 'All';
+let garageCategoryFilter = 'All'; // carried over from Nearby's category filter when relevant
 let myGarageStatusFilter = 'All';
 let itemDetailFrom = 'nearby';
 let currentConversation = null;
@@ -753,6 +754,7 @@ window.openGarage = async function(id, carryoverQuery){
   const searchBox = document.getElementById('garageSearchInput');
   searchBox.value = carryoverQuery || '';
   garageStatusFilter = 'All';
+  garageCategoryFilter = activeCategory; // reflects whatever category context Nearby was in
   buildGarageStatusChips();
   renderGarageItemGrid();
   show('garage');
@@ -773,11 +775,22 @@ window.renderGarageItemGrid = function(){
     || (it.description||'').toLowerCase().includes(q)
     || (it.categories||[]).some(cat=>cat.toLowerCase().includes(q))
   );
+  if (garageCategoryFilter !== 'All') {
+    items = items.filter(it => (it.categories||[]).includes(garageCategoryFilter));
+  }
   if (garageStatusFilter !== 'All') {
     items = items.filter(it => it.status === garageStatusFilter);
   } else {
     items = sortByStatusPriority(items);
   }
+
+  const banner = document.getElementById('garageCategoryBanner');
+  if (banner) {
+    banner.innerHTML = garageCategoryFilter !== 'All'
+      ? `Showing <b>${esc(garageCategoryFilter)}</b> only — <span style="color:var(--zinc-blue); font-weight:700; cursor:pointer;" onclick="clearGarageCategoryFilter()">show all categories</span>`
+      : '';
+  }
+
   document.getElementById('garageItemCount').textContent = q
     ? `${items.length} item${items.length===1?'':'s'} match "${query}"`
     : `${items.length} item${items.length===1?'':'s'}`;
@@ -788,10 +801,14 @@ window.renderGarageItemGrid = function(){
   if (items.length===0){
     grid.innerHTML = q
       ? `<div class="empty" style="grid-column:1/-1;"><p>No items match "${esc(query)}".<br>Try a different keyword.</p></div>`
-      : `<div class="empty" style="grid-column:1/-1;"><p>No ${garageStatusFilter.toLowerCase()} items.</p></div>`;
+      : `<div class="empty" style="grid-column:1/-1;"><p>No ${garageStatusFilter.toLowerCase()} items${garageCategoryFilter!=='All' ? ' in '+esc(garageCategoryFilter) : ''}.</p></div>`;
     return;
   }
   grid.innerHTML = items.map(it=>itemCardHtml(it, currentGarageId, 'garage', query)).join('');
+};
+window.clearGarageCategoryFilter = function(){
+  garageCategoryFilter = 'All';
+  renderGarageItemGrid();
 };
 function buildGarageStatusChips(){
   const box = document.getElementById('garageStatusChips');
