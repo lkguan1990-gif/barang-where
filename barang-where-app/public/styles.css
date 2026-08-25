@@ -37,7 +37,6 @@
     position:relative;
   }
   .display{font-family:'Anton',sans-serif; letter-spacing:0.01em;}
-  .mono{font-family:'IBM Plex Mono',monospace;}
 
   /* ---------- Top bar ---------- */
   .topbar{
@@ -79,14 +78,6 @@
   .pole-divider span{font-size:11px; text-transform:uppercase; letter-spacing:0.12em; font-weight:700; white-space:nowrap;}
 
   /* ---------- GPS / hero ---------- */
-  .gps-card{
-    background:var(--ink); color:var(--terrazzo); border-radius:14px; padding:22px 20px; margin-top:8px;
-    box-shadow:var(--shadow); border:2px solid var(--ink);
-  }
-  .gps-card h1{
-    font-family:'Anton',sans-serif; font-size:26px; line-height:1.15; margin:0 0 8px; letter-spacing:0.01em;
-  }
-  .gps-card p{margin:0 0 16px; font-size:13.5px; color:#d8d4c6; line-height:1.5;}
   .btn{
     display:inline-flex; align-items:center; justify-content:center; gap:8px;
     font-family:'Inter',sans-serif; font-weight:700; font-size:14px;
@@ -95,15 +86,11 @@
     transition:transform .08s ease;
   }
   .btn:active{transform:translateY(2px); box-shadow:none;}
-  .btn.secondary{background:var(--card);}
   .btn.block{width:100%;}
   .btn.small{padding:8px 12px; font-size:12.5px; box-shadow:none; border-width:1.5px;}
   .btn.ghost{background:transparent; border:1.5px solid var(--ink);}
   .btn.red{background:var(--hdb-red); color:#fff;}
 
-  .pulse-row{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--ink-soft); margin-top:14px;}
-  .pulse-dot{width:9px;height:9px;border-radius:50%;background:var(--olive); animation:pulse 1.4s infinite;}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(107,122,61,0.5);}70%{box-shadow:0 0 0 8px rgba(107,122,61,0);}100%{box-shadow:0 0 0 0 rgba(107,122,61,0);}}
 
   /* ---------- Estate banner (after gps) ---------- */
   .estate-banner{
@@ -248,10 +235,6 @@
   .photo-dots{position:absolute; bottom:10px; left:0; right:0; display:flex; justify-content:center; gap:6px;}
   .photo-dot{width:7px;height:7px;border-radius:50%; background:rgba(255,255,255,0.55); border:1px solid rgba(0,0,0,0.25); cursor:pointer;}
   .photo-dot.active{background:var(--sunny);}
-  .idet-thumbrow{display:flex; gap:8px; margin-top:10px;}
-  .idet-thumbrow .t{width:52px;height:52px; border-radius:8px; border:2px solid var(--ink); overflow:hidden; cursor:pointer; opacity:0.55;}
-  .idet-thumbrow .t.active{opacity:1;}
-  .idet-thumbrow img{width:100%;height:100%;object-fit:cover; display:block;}
 
   /* ---------- Photo upload widget (Add Item) ---------- */
   .photo-upload-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:2px;}
@@ -276,7 +259,6 @@
     0%, 100% { box-shadow:0 0 0 0 rgba(192,57,43,0.35); }
     50% { box-shadow:0 0 0 6px rgba(192,57,43,0); }
   }
-  .icon-fallback-toggle{font-size:11.5px; color:var(--zinc-blue); font-weight:700; cursor:pointer; margin-top:10px; display:inline-block;}
   .save-btn{
     position:absolute; top:12px; right:12px; width:38px;height:38px; border-radius:50%;
     background:var(--card); border:2px solid var(--ink); display:flex; align-items:center;justify-content:center; cursor:pointer;
@@ -351,7 +333,6 @@
   .composer button{
     width:46px; border-radius:10px; border:2px solid var(--ink); background:var(--hdb-red); color:#fff; font-size:17px; cursor:pointer;
   }
-  .typing{font-size:11.5px; color:var(--ink-soft); font-style:italic; padding:2px 0 6px 4px;}
 
   /* ---------- My Garage ---------- */
   .my-header{
@@ -399,12 +380,6 @@
     width:100%; padding:11px; border-radius:9px; border:2px solid var(--ink); font-family:'Inter'; font-size:16px; background:var(--card); color:var(--ink);
   }
   .field textarea{resize:vertical; min-height:70px;}
-  .emoji-pick{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px;}
-  .emoji-opt{
-    width:42px;height:42px; border-radius:9px; border:2px solid var(--ink); background:var(--card); font-size:20px;
-    display:flex; align-items:center; justify-content:center; cursor:pointer;
-  }
-  .emoji-opt.active{background:var(--sunny);}
 
   /* ---------- Profile ---------- */
   .profile-hero{display:flex; flex-direction:column; align-items:center; text-align:center; margin-top:10px;}
@@ -469,11 +444,6 @@
   }
   .price-card.selected .radio-dot::after{content:""; width:10px;height:10px;border-radius:50%; background:var(--ink);}
 
-  .preview-box{
-    margin-top:16px; padding:14px; background:var(--terrazzo-dark); border-radius:12px; border:1.5px dashed rgba(36,41,31,0.35);
-  }
-  .preview-box .lbl{font-size:10px; text-transform:uppercase; letter-spacing:0.06em; font-weight:700; color:var(--ink-soft); margin-bottom:8px;}
-
   .paynow-row{
     display:flex; align-items:center; gap:10px; padding:12px; border:1.5px solid var(--ink); border-radius:10px;
     background:var(--card); margin-top:16px;
@@ -486,14 +456,6 @@
   .feature-list li{display:flex; gap:10px; align-items:flex-start; font-size:13px; padding:9px 0; border-bottom:1px solid var(--line);}
   .feature-list li:last-child{border-bottom:none;}
   .feature-list .tick{color:var(--olive); font-weight:800; flex:0 0 auto;}
-
-  .success-box{
-    text-align:center; padding:40px 16px;
-  }
-  .success-box .glyph{font-size:44px; margin-bottom:14px;}
-  .success-box h2{font-family:'Anton',sans-serif; font-size:20px; margin:0 0 8px;}
-  .success-box p{font-size:13px; color:var(--ink-soft); line-height:1.5; margin:0 0 20px;}
-  .disclaimer{font-size:10.5px; color:var(--ink-soft); text-align:center; margin-top:14px; line-height:1.5;}
 
   /* ---------- Bottom nav ---------- */
   .bottomnav{

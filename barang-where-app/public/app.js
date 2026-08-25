@@ -673,7 +673,7 @@ function garageCardHtml(g, query, matchingItems){
   const preview = displayItems.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${isActivelyBoosted(it)?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
   const more = displayItems.length>4 ? `<div class="mini-item more">+${displayItems.length-4}</div>` : '';
   const isBoosted = (g.items||[]).some(i=>isActivelyBoosted(i));
-  const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : formatDistance(g.distance));
+  const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : (g.distance < 100 ? 'Very near' : formatDistance(g.distance)));
   const liked = savedGarageIds.has(g.id);
   const itemCountLabel = matchingItems
     ? `${matchingItems.length} item${matchingItems.length===1?'':'s'} match`
@@ -721,7 +721,7 @@ window.openGarage = async function(id, carryoverQuery){
       <div class="block-tile sz-hero" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="who">
         <div class="name">${esc(g.display_name)}</div>
-        <div class="addr">Blk ${esc(g.block)}, ${townLabel(g)} ${sameBlock(g) ? '· in your block' : ((g.distance!==null && g.distance!==undefined) ? '· '+formatDistance(g.distance)+' away' : '')}</div>
+        <div class="addr">Blk ${esc(g.block)}, ${townLabel(g)} ${sameBlock(g) ? '· in your block' : ((g.distance!==null && g.distance!==undefined) ? '· '+(g.distance < 100 ? 'very close by' : formatDistance(g.distance)+' away') : '')}</div>
         <div class="tagline">"${esc(g.tagline) || "Welcome to my garage — feel free to ask about anything!"}"</div>
       </div>
     </div>

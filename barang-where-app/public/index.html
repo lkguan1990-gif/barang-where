@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app" id="app">
+<div class="app">
 
   <!-- ============ LOADING ============ -->
   <div class="center-loader" id="bootLoader">📡 Loading Barang Where…</div>
@@ -102,7 +102,7 @@
   <!-- ============ MAIN APP (mirrors the mockup's screens) ============ -->
   <div id="mainApp" style="display:none;">
 
-    <div class="topbar" id="topbar">
+    <div class="topbar">
       <div>
         <div class="brand"><span class="dot"></span>BARANG WHERE</div>
         <div class="sub" id="topbarSub">📍 Locating…</div>
@@ -112,7 +112,7 @@
 
     <!-- NEARBY -->
     <div class="screen active" id="screen-nearby">
-      <div id="nearbyContent">
+      <div>
         <div id="locationWarningSlot"></div>
         <div class="estate-banner">
           <div class="where" id="locationSummary">—</div>
@@ -177,7 +177,7 @@
       </div>
       <div id="proBannerSlot"></div>
       <div class="pole-divider"><span>Your listings</span></div>
-      <button class="btn block" id="addItemBtn" onclick="editingItemId=null; show('additem')">＋ List a new item</button>
+      <button class="btn block" onclick="editingItemId=null; show('additem')">＋ List a new item</button>
       <div class="chips" id="myGarageStatusChips" style="margin-top:12px;"></div>
       <div id="myItemsList" style="margin-top:14px;"></div>
     </div>
@@ -320,9 +320,9 @@
           <button class="btn small" style="align-self:flex-start;" onclick="saveGarageDetails()">Save changes</button>
           <div class="auth-msg" id="editGarageMsg"></div>
           <div id="homeAddressStatusSlot" style="margin-top:6px;"></div>
-          <button class="btn small ghost" style="align-self:flex-start; margin-top:4px;" onclick="updateHomeAddress()">🏠 Update home address (only if you've moved)</button>
+          <button class="btn small ghost" style="align-self:flex-start; margin-top:4px;" onclick="updateHomeAddress()">🏠 Update home address</button>
         </div>
-        <div class="profile-row" id="locationRow" style="flex-direction:column; align-items:stretch; gap:10px;">
+        <div class="profile-row" style="flex-direction:column; align-items:stretch; gap:10px;">
           <span style="font-weight:700;">Browse Nearby from…</span>
           <div class="field-hint" style="margin-top:-4px;">This only affects what YOU see when searching Nearby — it never changes your garage's own address above.</div>
           <div class="status-pills">
