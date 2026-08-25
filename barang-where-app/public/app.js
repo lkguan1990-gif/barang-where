@@ -274,7 +274,8 @@ window.finishOnboarding = async function(){
   }
 
   const { error } = await supabase.from('garages').insert({
-    id: session.user.id, display_name, block, town, neighbourhood, lat, lng
+    id: session.user.id, display_name, block, town, neighbourhood,
+    home_lat: lat, home_lng: lng, browse_lat: lat, browse_lng: lng
   });
   if (error) { msg.className='auth-msg error'; msg.textContent = error.message; return; }
   await route();
@@ -370,35 +371,39 @@ window.loadNearby = async function(){
   nearbyGarages = (data || []).map(g => ({
     ...g,
     items: (g.items || []).filter(it => !it.deleted_at),
-    distance: haversineMeters(myGarage.lat, myGarage.lng, g.lat, g.lng)
+    distance: haversineMeters(myGarage.browse_lat, myGarage.browse_lng, g.home_lat, g.home_lng)
   }));
   const isLiveLocation = myGarage.location_mode === 'live';
-  const townName = isLiveLocation
-    ? (nearestTown(myGarage.lat, myGarage.lng) || 'Unknown area')
-    : (myGarage.town || '—');
-  document.getElementById('topbarSub').textContent = (isLiveLocation ? '📍 Live: ' : '📍 Home: ') + townName;
-  document.getElementById('locationSummary').textContent = isLiveLocation
-    ? `Your garage location is currently near ${townName} (based on your live GPS position), moving with you since Live location is on.`
-    : `Your garage location is set to ${townName}, based on your home location in Profile.`;
+  const garageTownName = myGarage.town || '—';
+  if (isLiveLocation) {
+    const browseTownName = nearestTown(myGarage.browse_lat, myGarage.browse_lng) || 'Unknown area';
+    document.getElementById('topbarSub').textContent = `📍 Garage: ${garageTownName} · 🛰️ Browsing from: ${browseTownName}`;
+    document.getElementById('locationSummary').textContent =
+      `Your garage stays listed at ${garageTownName}. You're currently browsing as if you were near ${browseTownName}, since Live location is on — this doesn't move your garage.`;
+  } else {
+    document.getElementById('topbarSub').textContent = `📍 Garage: ${garageTownName}`;
+    document.getElementById('locationSummary').textContent =
+      `Your garage is listed at ${garageTownName}, and you're browsing from the same place.`;
+  }
   renderGarageList();
 };
 function renderLocationWarning(){
   const slot = document.getElementById('locationWarningSlot');
   if (!slot) return;
-  const missing = myGarage.lat === null || myGarage.lat === undefined;
-  const label = (myGarage.location_mode === 'live') ? 'current location' : 'home location';
+  const missing = myGarage.home_lat === null || myGarage.home_lat === undefined;
   slot.innerHTML = missing ? `
-    <div class="location-warning" onclick="requestLocationUpdate()">
+    <div class="location-warning" onclick="updateHomeAddress()">
       <div class="glyph">📍</div>
-      <div class="txt">Your ${label} isn't set, so distances to nearby garages can't be shown.</div>
+      <div class="txt">Your garage's home address isn't set, so buyers can't see a distance to it.</div>
       <div class="go">Enable →</div>
     </div>` : '';
 }
-window.requestLocationUpdate = async function(){
-  const mode = myGarage.location_mode || 'fixed';
-  const alreadySet = myGarage.lat !== null && myGarage.lat !== undefined;
-  if (mode === 'fixed' && alreadySet) {
-    const ok = confirm("This will update your home location to wherever you are right now. Only do this if you're actually at home. Continue?");
+window.updateHomeAddress = async function(){
+  // This is the RARE, deliberate action for when you actually move house.
+  // It only ever touches home_lat/lng -- never your browse position.
+  const alreadySet = myGarage.home_lat !== null && myGarage.home_lat !== undefined;
+  if (alreadySet) {
+    const ok = confirm("This updates your garage's permanent address to wherever you are right now. Only do this if you've actually moved house. Continue?");
     if (!ok) return;
   }
   toast('Requesting your location…');
@@ -411,24 +416,61 @@ window.requestLocationUpdate = async function(){
     toast('Could not get your location — check your browser/device location permission.');
     return;
   }
-  const { error } = await supabase.from('garages').update({lat, lng}).eq('id', session.user.id);
-  if (error) { toast('Failed to save your location.'); console.error(error); return; }
-  myGarage.lat = lat; myGarage.lng = lng;
-  locationJustSwitched = false;
-  toast(mode === 'fixed' ? '🏠 Home location updated!' : '📡 Current location updated!');
+  const updates = { home_lat: lat, home_lng: lng };
+  // Fixed mode means "browse from home" -- keep that mirror in sync.
+  if ((myGarage.location_mode || 'fixed') === 'fixed') {
+    updates.browse_lat = lat; updates.browse_lng = lng;
+  }
+  const { error } = await supabase.from('garages').update(updates).eq('id', session.user.id);
+  if (error) { toast('Failed to save your address.'); console.error(error); return; }
+  Object.assign(myGarage, updates);
+  toast('🏠 Garage address updated!');
   renderLocationWarning();
+  if (currentScreen === 'profile') renderProfile();
+  await loadNearby();
+};
+window.requestLocationUpdate = async function(){
+  // This is the frequent, casual action -- refreshing where YOU are
+  // browsing from right now. Only ever touches browse_lat/lng, never
+  // your garage's actual advertised address.
+  toast('Requesting your location…');
+  let lat = null, lng = null;
+  try {
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout:8000}));
+    lat = Math.round(pos.coords.latitude * 1000) / 1000;
+    lng = Math.round(pos.coords.longitude * 1000) / 1000;
+  } catch (e) {
+    toast('Could not get your location — check your browser/device location permission.');
+    return;
+  }
+  const { error } = await supabase.from('garages').update({browse_lat: lat, browse_lng: lng}).eq('id', session.user.id);
+  if (error) { toast('Failed to save your position.'); console.error(error); return; }
+  myGarage.browse_lat = lat; myGarage.browse_lng = lng;
+  locationJustSwitched = false;
+  toast('📡 Now browsing from your current position!');
   if (currentScreen === 'profile') renderProfile();
   await loadNearby();
 };
 window.setLocationMode = async function(mode){
   if (myGarage.location_mode === mode) return;
   myGarage.location_mode = mode;
-  const { error } = await supabase.from('garages').update({location_mode: mode}).eq('id', session.user.id);
+  const updates = { location_mode: mode };
+  if (mode === 'fixed') {
+    // Fixed means "browse from home" -- snap browse position back to
+    // home immediately, since there's nothing independent to track.
+    updates.browse_lat = myGarage.home_lat;
+    updates.browse_lng = myGarage.home_lng;
+  }
+  const { error } = await supabase.from('garages').update(updates).eq('id', session.user.id);
   if (error) { toast('Failed to switch mode.'); console.error(error); return; }
-  locationJustSwitched = true;
-  toast(mode === 'fixed'
-    ? '🏠 Switched to Fixed mode — tap "Update home location" below now to save it.'
-    : '📡 Switched to Live mode — tap "Refresh current location" below now to capture it.');
+  Object.assign(myGarage, updates);
+  if (mode === 'fixed') {
+    locationJustSwitched = false;
+    toast(`🏠 Now browsing from your garage's home location (${myGarage.town || 'home'}).`);
+  } else {
+    locationJustSwitched = true;
+    toast('📡 Switched to Live — tap "Refresh my current position" below now to browse from where you actually are.');
+  }
   renderProfile();
 };
 function buildCategoryChips(){
@@ -623,7 +665,7 @@ window.openGarage = async function(id, carryoverQuery){
   const g = {
     ...data,
     items: (data.items || []).filter(it => !it.deleted_at),
-    distance: haversineMeters(myGarage.lat, myGarage.lng, data.lat, data.lng)
+    distance: haversineMeters(myGarage.browse_lat, myGarage.browse_lng, data.home_lat, data.home_lng)
   };
   currentGarageId = id;
   currentGarageItemsCache = g.items || [];
@@ -1577,29 +1619,28 @@ window.renderProfile = function(){
   document.getElementById('editGarageMsg').textContent = '';
 
   const mode = myGarage.location_mode || 'fixed';
-  const missing = myGarage.lat === null || myGarage.lat === undefined;
+  const browseMissing = myGarage.browse_lat === null || myGarage.browse_lat === undefined;
   document.getElementById('modeFixedBtn').className = 'status-pill' + (mode==='fixed' ? ' active mode-fixed' : '');
   document.getElementById('modeLiveBtn').className = 'status-pill' + (mode==='live' ? ' active mode-live' : '');
 
   const hint = document.getElementById('locationModeHint');
   const actionBtn = document.getElementById('locationActionBtn');
   if (mode === 'fixed') {
-    hint.textContent = missing
-      ? "Your home location isn't set yet — items won't show a distance to buyers until you set it."
-      : (locationJustSwitched
-          ? "⚠️ You just switched to Fixed mode — tap the button below now to actually save this as your home point."
-          : "Neighbours can find your garage near this fixed point, even while you're out.");
-    actionBtn.textContent = missing ? '🏠 Set my home location' : '🏠 Update home location';
+    hint.textContent = browseMissing
+      ? "Your garage's home address isn't set yet — set it below under Garage Details first."
+      : "You're browsing Nearby from your garage's home location — this always matches automatically in Fixed mode.";
+    actionBtn.style.display = 'none';
   } else {
-    hint.textContent = missing
-      ? "Your current location isn't set yet."
+    hint.textContent = browseMissing
+      ? "Tap below to start browsing from your current position."
       : (locationJustSwitched
-          ? "⚠️ You just switched to Live mode — tap the button below now to actually capture your current position."
-          : "Your garage shows up wherever you last refreshed your location from.");
-    actionBtn.textContent = '📡 Refresh current location';
+          ? "⚠️ You just switched to Live — tap the button below now to actually browse from where you are."
+          : "You're browsing Nearby from wherever you last refreshed below — your garage's own address hasn't moved.");
+    actionBtn.style.display = '';
+    actionBtn.textContent = '📡 Refresh my current position';
   }
-  hint.classList.toggle('needs-attention', locationJustSwitched);
-  actionBtn.classList.toggle('needs-attention', locationJustSwitched);
+  hint.classList.toggle('needs-attention', locationJustSwitched && mode === 'live');
+  actionBtn.classList.toggle('needs-attention', locationJustSwitched && mode === 'live');
 };
 
 window.renderLiked = async function(){
@@ -1656,7 +1697,7 @@ window.renderLikedGarages = async function(){
     .map(row => ({
       ...row.garage,
       items: (row.garage.items || []).filter(it => !it.deleted_at),
-      distance: haversineMeters(myGarage.lat, myGarage.lng, row.garage.lat, row.garage.lng)
+      distance: haversineMeters(myGarage.browse_lat, myGarage.browse_lng, row.garage.home_lat, row.garage.home_lng)
     }));
 
   if (garages.length === 0){

@@ -16,8 +16,10 @@ create table public.garages (
   block                text not null,
   town                 text not null default 'Sengkang',
   neighbourhood        text default '',  -- optional, cosmetic only (e.g. "Khatib") -- never used for search/matching
-  lat                  double precision,   -- rounded to ~100m before saving, see app.js
-  lng                  double precision,
+  home_lat             double precision,   -- garage's permanent address; rounded to ~100m before saving, see app.js
+  home_lng             double precision,
+  browse_lat           double precision,   -- where the user is currently browsing FROM (Fixed mirrors home, Live tracks GPS)
+  browse_lng           double precision,
   location_mode        text not null default 'fixed' check (location_mode in ('fixed','live')),
   tagline              text default '',
   is_pro               boolean not null default false,

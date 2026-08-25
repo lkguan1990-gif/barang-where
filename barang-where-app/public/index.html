@@ -319,9 +319,12 @@
           </div>
           <button class="btn small" style="align-self:flex-start;" onclick="saveGarageDetails()">Save changes</button>
           <div class="auth-msg" id="editGarageMsg"></div>
+          <div class="field-hint" style="margin-top:6px;">Your garage's home address is separate from browsing below — it only changes if you actually move house.</div>
+          <button class="btn small ghost" style="align-self:flex-start; margin-top:4px;" onclick="updateHomeAddress()">🏠 Update home address (only if you've moved)</button>
         </div>
         <div class="profile-row" id="locationRow" style="flex-direction:column; align-items:stretch; gap:10px;">
-          <span style="font-weight:700;">Location</span>
+          <span style="font-weight:700;">Browse Nearby from…</span>
+          <div class="field-hint" style="margin-top:-4px;">This only affects what YOU see when searching Nearby — it never changes your garage's own address above.</div>
           <div class="status-pills">
             <div class="status-pill" id="modeFixedBtn" onclick="setLocationMode('fixed')">🏠 Fixed (home)</div>
             <div class="status-pill" id="modeLiveBtn" onclick="setLocationMode('live')">📡 Live (current)</div>
