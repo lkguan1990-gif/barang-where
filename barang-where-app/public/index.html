@@ -108,6 +108,10 @@
         <div class="sub" id="topbarSub" onclick="show('profile')" style="cursor:pointer;">Locating…</div>
       </div>
     </div>
+    <div id="pullRefreshIndicator" style="height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:8px; font-size:12px; font-weight:700; color:var(--ink-soft); transition:height 0.15s;">
+      <span id="pullRefreshIcon" style="display:inline-block;">↻</span>
+      <span id="pullRefreshLabel">Pull to refresh</span>
+    </div>
     <!-- Note: chat icon removed here — the Chats tab in the bottom nav already covers this, avoiding a duplicate entry point -->
 
     <!-- NEARBY -->
@@ -116,7 +120,6 @@
         <div id="locationWarningSlot"></div>
         <div class="searchbar">
           <input type="text" id="searchInput" placeholder="Search items or garages…" oninput="debouncedRenderGarageList()" maxlength="60">
-          <div class="iconbtn" style="width:44px;height:44px;flex:0 0 auto;" onclick="loadNearby()">↻</div>
         </div>
         <div class="chips" id="categoryChips"></div>
         <div class="radius-label">Distance</div>

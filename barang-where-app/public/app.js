@@ -1758,6 +1758,62 @@ window.renderLikedGarages = async function(){
 };
 
 /* =========================================================
+   PULL TO REFRESH (Nearby screen only)
+========================================================= */
+(function setupPullToRefresh(){
+  const PULL_THRESHOLD = 70; // px of pull needed to trigger a refresh
+  const PULL_MAX = 100;      // cap on how far the indicator visually grows
+  let startY = null;
+  let pulling = false;
+  let refreshing = false;
+
+  document.addEventListener('touchstart', (e) => {
+    if (currentScreen !== 'nearby' || refreshing) { startY = null; pulling = false; return; }
+    if (window.scrollY > 0) { startY = null; pulling = false; return; }
+    startY = e.touches[0].clientY;
+    pulling = true;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!pulling || startY === null || refreshing) return;
+    const delta = e.touches[0].clientY - startY;
+    if (delta <= 0) return; // only care about pulling downward
+    const indicator = document.getElementById('pullRefreshIndicator');
+    const icon = document.getElementById('pullRefreshIcon');
+    const label = document.getElementById('pullRefreshLabel');
+    if (!indicator) return;
+    const capped = Math.min(delta, PULL_MAX);
+    indicator.style.height = capped + 'px';
+    icon.style.transform = `rotate(${Math.min(capped / PULL_THRESHOLD, 1) * 360}deg)`;
+    label.textContent = capped >= PULL_THRESHOLD ? 'Release to refresh' : 'Pull to refresh';
+  }, { passive: true });
+
+  document.addEventListener('touchend', async () => {
+    if (!pulling) return;
+    pulling = false;
+    const indicator = document.getElementById('pullRefreshIndicator');
+    const icon = document.getElementById('pullRefreshIcon');
+    const label = document.getElementById('pullRefreshLabel');
+    startY = null;
+    if (!indicator) return;
+    const reachedThreshold = parseInt(indicator.style.height || '0', 10) >= PULL_THRESHOLD;
+    if (reachedThreshold && !refreshing) {
+      refreshing = true;
+      label.textContent = 'Refreshing…';
+      icon.style.animation = 'pull-spin 0.7s linear infinite';
+      indicator.style.height = '50px';
+      await loadNearby();
+      icon.style.animation = '';
+      icon.style.transform = '';
+      indicator.style.height = '0px';
+      refreshing = false;
+    } else {
+      indicator.style.height = '0px';
+    }
+  });
+})();
+
+/* =========================================================
    START
 ========================================================= */
 boot();
