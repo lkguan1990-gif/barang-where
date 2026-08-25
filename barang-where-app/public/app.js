@@ -563,16 +563,18 @@ function renderGarageList(){
     buildRadiusChips();
   }
   let list = nearbyGarages.slice().sort((a,b)=>{
-    const aBoost = (a.items||[]).some(i=>isActivelyBoosted(i)) ? 1 : 0;
-    const bBoost = (b.items||[]).some(i=>isActivelyBoosted(i)) ? 1 : 0;
-    if (aBoost !== bBoost) return bBoost - aBoost;
     const ad = a.distance ?? Infinity, bd = b.distance ?? Infinity;
     return ad - bd;
   });
 
   // Classify each garage: passes the base filters at all, and if actively
   // searching, whether it matched by item (with the cheapest matching item
-  // for the price indicator) or only by name/block/town.
+  // for the price indicator) or only by name/block/town. Also computes
+  // relevantBoostedCount -- boosted items that are actually relevant to
+  // the CURRENT view (matching the active category filter, or matching
+  // the active search) -- rather than "any boosted item anywhere in the
+  // garage," which made an unrelated boosted item elevate the whole
+  // garage even when browsing something else entirely.
   const classified = list.map(g=>{
     const items = g.items || [];
     const name = (g.display_name || '').toLowerCase();
@@ -584,16 +586,29 @@ function renderGarageList(){
     const hasAvailableItems = items.some(it=>it.status!=='Sold');
     if (!matchesCat || !withinRadius || !hasAvailableItems) return null;
 
-    if (!q) return { g, matchType: 'none' };
+    if (!q) {
+      const categoryMatchingItems = activeCategory === 'All' ? [] : items.filter(it => it.status!=='Sold' && (it.categories||[]).includes(activeCategory));
+      const relevantBoostedCount = categoryMatchingItems.filter(it=>isActivelyBoosted(it)).length;
+      return { g, matchType: 'none', relevantBoostedCount };
+    }
 
     const matchingItems = items.filter(it => it.status!=='Sold' &&
       ((it.title||'').toLowerCase().includes(q) || (it.categories||[]).some(cat=>cat.toLowerCase().includes(q))));
     if (matchingItems.length > 0) {
-      return { g, matchType: 'item', matchingItems };
+      const relevantBoostedCount = matchingItems.filter(it=>isActivelyBoosted(it)).length;
+      return { g, matchType: 'item', matchingItems, relevantBoostedCount };
     }
-    if (name.includes(q) || block.includes(q) || town.includes(q)) return { g, matchType: 'garage' };
+    if (name.includes(q) || block.includes(q) || town.includes(q)) return { g, matchType: 'garage', relevantBoostedCount: 0 };
     return null;
   }).filter(Boolean);
+
+  // Within each group, boosted-and-relevant garages sort first, then by distance.
+  const byRelevantBoostThenDistance = (a,b) => {
+    if (a.relevantBoostedCount !== b.relevantBoostedCount) return b.relevantBoostedCount - a.relevantBoostedCount;
+    const ad = a.g.distance ?? Infinity, bd = b.g.distance ?? Infinity;
+    return ad - bd;
+  };
+  classified.sort(byRelevantBoostThenDistance);
 
   const box = document.getElementById('garageList');
   const countLabel = document.getElementById('resultsCount');
@@ -608,7 +623,7 @@ function renderGarageList(){
       box.innerHTML = `<div class="empty"><p>No garages match yet.<br>${reason}</p></div>`;
       return;
     }
-    box.innerHTML = classified.map(m=>garageCardHtml(m.g, rawQuery)).join('');
+    box.innerHTML = classified.map(m=>garageCardHtml(m.g, rawQuery, null, m.relevantBoostedCount)).join('');
     return;
   }
 
@@ -621,8 +636,12 @@ function renderGarageList(){
   let itemMatches = itemMatchesRaw;
   if (conditionFilter !== 'All') {
     itemMatches = itemMatchesRaw
-      .map(m => ({ ...m, matchingItems: m.matchingItems.filter(it=>it.condition===conditionFilter) }))
+      .map(m => {
+        const matchingItems = m.matchingItems.filter(it=>it.condition===conditionFilter);
+        return { ...m, matchingItems, relevantBoostedCount: matchingItems.filter(it=>isActivelyBoosted(it)).length };
+      })
       .filter(m => m.matchingItems.length > 0);
+    itemMatches.sort(byRelevantBoostThenDistance);
   }
 
   const total = itemMatches.length + garageMatches.length;
@@ -638,12 +657,12 @@ function renderGarageList(){
     html += `<div class="pole-divider" style="margin-top:0;"><span>ITEMS</span></div>`;
     html += `<div class="chips" style="margin-bottom:10px;">${conditionChipsHtml()}</div>`;
     html += itemMatches.length>0
-      ? itemMatches.map(m=>garageCardHtml(m.g, rawQuery, m.matchingItems)).join('')
+      ? itemMatches.map(m=>garageCardHtml(m.g, rawQuery, m.matchingItems, m.relevantBoostedCount)).join('')
       : `<div class="empty"><p>No ${conditionFilter.toLowerCase()} condition items match "${esc(rawQuery)}".</p></div>`;
   }
   if (garageMatches.length>0){
     html += `<div class="pole-divider"><span>GARAGES</span></div>`;
-    html += garageMatches.map(m=>garageCardHtml(m.g, rawQuery, null)).join('');
+    html += garageMatches.map(m=>garageCardHtml(m.g, rawQuery, null, m.relevantBoostedCount)).join('');
   }
   box.innerHTML = html;
 }
@@ -667,7 +686,7 @@ function highlightMatch(rawText, query){
   const after = text.slice(idx + query.length);
   return esc(before) + '<mark class="search-hl">' + esc(match) + '</mark>' + esc(after);
 }
-function garageCardHtml(g, query, matchingItems){
+function garageCardHtml(g, query, matchingItems, relevantBoostedCount){
   query = query || '';
   const c = colorFor(g.id);
   const displayItems = matchingItems
@@ -675,9 +694,11 @@ function garageCardHtml(g, query, matchingItems){
     : (g.items||[]).filter(it=>it.status!=='Sold' && (activeCategory==="All" || (it.categories||[]).includes(activeCategory)));
   const preview = displayItems.slice(0,4).map(it=>`<div class="mini-item" style="position:relative;">${mediaFill(it)}${isActivelyBoosted(it)?'<div class="mi-boost-flag">🔥</div>':''}</div>`).join('');
   const more = displayItems.length>4 ? `<div class="mini-item more">+${displayItems.length-4}</div>` : '';
-  const isBoosted = (g.items||[]).some(i=>isActivelyBoosted(i));
   const distLabel = sameBlock(g) ? 'IN YOUR BLOCK' : ((g.distance===null || g.distance===undefined) ? '—' : (g.distance < 100 ? 'Very near' : formatDistance(g.distance)));
   const liked = savedGarageIds.has(g.id);
+  const boostBadge = relevantBoostedCount > 0
+    ? `<span class="inline-boost-badge">🔥 ${relevantBoostedCount} boosted</span>`
+    : '';
   const itemCountLabel = matchingItems
     ? `${matchingItems.length} item${matchingItems.length===1?'':'s'} match`
     : `${(g.items||[]).length} item${(g.items||[]).length===1?'':'s'}`;
@@ -690,11 +711,10 @@ function garageCardHtml(g, query, matchingItems){
   }
   return `
     <div class="garage-card" style="position:relative;" data-query="${esc(query)}" onclick="openGarage('${g.id}', this.dataset.query)">
-      ${isBoosted ? '<div class="boost-tag">🔥 Boosted</div>' : ''}
       <div class="garage-like-btn ${liked?'liked':''}" data-garage-id="${g.id}" title="Like this garage — saves the whole seller, not a specific item" onclick="toggleSaveGarage('${g.id}', event)">${liked?'♥':'♡'}</div>
       <div class="block-tile sz-list" style="background:${c};"><div class="num">${esc(g.block)}</div><div class="town">${esc((g.town||'').toUpperCase())}</div></div>
       <div class="info">
-        <div class="row1"><div class="name">${highlightMatch(g.display_name, query)}</div><div class="dist">${distLabel}</div></div>
+        <div class="row1"><div class="name">${highlightMatch(g.display_name, query)}</div>${boostBadge}<div class="dist">${distLabel}</div></div>
         <div class="addr">Blk ${highlightMatch(g.block, query)}, ${townLabel(g)} · ${itemCountLabel}</div>
         <div class="preview-row"><div class="preview">${preview}${more}</div>${priceLabel}</div>
       </div>
@@ -792,7 +812,7 @@ function itemCardHtml(it, garageId, fromScreen, query){
   <div class="item-card" onclick="openItem('${it.id}','${garageId}','${from}')">
     <div class="item-photo" style="background:${colorFor(it.id)}22;">
       ${mediaFill(it)}
-      ${isActivelyBoosted(it) ? '<div class="boost-tag" style="top:6px; left:6px; right:auto;">🔥</div>' : ''}
+      ${isActivelyBoosted(it) ? '<div class="mi-boost-flag">🔥</div>' : ''}
       <div class="status-tag ${statusClass}">${it.status}</div>
     </div>
     <div class="item-body">
