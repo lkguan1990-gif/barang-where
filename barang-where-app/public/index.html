@@ -114,10 +114,10 @@
     <div class="screen active" id="screen-nearby">
       <div>
         <div id="locationWarningSlot"></div>
-        <div class="estate-banner" style="justify-content:flex-end;">
-          <div class="iconbtn" style="width:30px;height:30px;font-size:12px;" onclick="loadNearby()">↻</div>
+        <div class="searchbar">
+          <input type="text" id="searchInput" placeholder="Search items or garages…" oninput="debouncedRenderGarageList()" maxlength="60">
+          <div class="iconbtn" style="width:44px;height:44px;flex:0 0 auto;" onclick="loadNearby()">↻</div>
         </div>
-        <div class="searchbar"><input type="text" id="searchInput" placeholder="Search items or garages…" oninput="debouncedRenderGarageList()" maxlength="60"></div>
         <div class="chips" id="categoryChips"></div>
         <div class="radius-label">Distance</div>
         <div class="chips" id="radiusChips"></div>

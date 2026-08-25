@@ -92,13 +92,6 @@
   .btn.red{background:var(--hdb-red); color:#fff;}
 
 
-  /* ---------- Estate banner (after gps) ---------- */
-  .estate-banner{
-    display:flex; align-items:center; justify-content:space-between; margin-top:4px; margin-bottom:2px;
-  }
-  .estate-banner .where{font-size:12px; color:var(--ink-soft); line-height:1.5;}
-  .estate-banner .where b{color:var(--ink);}
-
   /* ---------- Location warning banner ---------- */
   .location-warning{
     display:flex; align-items:center; gap:10px; background:var(--sunny); border:2px solid var(--ink);
