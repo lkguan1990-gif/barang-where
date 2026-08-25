@@ -47,6 +47,7 @@ let activeCategory = "All";
 let currentItemId = null;
 let currentItemCache = null;  // last-opened item detail, so we don't need a refetch for send/save
 let currentGarageId = null;
+let locationJustSwitched = false; // true right after switching Fixed/Live until the location is actually captured for it
 let currentGarageItemsCache = [];
 let garageStatusFilter = 'All';
 let myGarageStatusFilter = 'All';
@@ -381,6 +382,7 @@ window.requestLocationUpdate = async function(){
   const { error } = await supabase.from('garages').update({lat, lng}).eq('id', session.user.id);
   if (error) { toast('Failed to save your location.'); console.error(error); return; }
   myGarage.lat = lat; myGarage.lng = lng;
+  locationJustSwitched = false;
   toast(mode === 'fixed' ? '🏠 Home location updated!' : '📡 Current location updated!');
   renderLocationWarning();
   if (currentScreen === 'profile') renderProfile();
@@ -391,7 +393,10 @@ window.setLocationMode = async function(mode){
   myGarage.location_mode = mode;
   const { error } = await supabase.from('garages').update({location_mode: mode}).eq('id', session.user.id);
   if (error) { toast('Failed to switch mode.'); console.error(error); return; }
-  toast(mode === 'fixed' ? 'Switched to Fixed (home) mode' : 'Switched to Live (current) mode');
+  locationJustSwitched = true;
+  toast(mode === 'fixed'
+    ? '🏠 Switched to Fixed mode — tap "Update home location" below now to save it.'
+    : '📡 Switched to Live mode — tap "Refresh current location" below now to capture it.');
   renderProfile();
 };
 function buildCategoryChips(){
@@ -1541,14 +1546,20 @@ window.renderProfile = function(){
   if (mode === 'fixed') {
     hint.textContent = missing
       ? "Your home location isn't set yet — items won't show a distance to buyers until you set it."
-      : "Neighbours can find your garage near this fixed point, even while you're out.";
+      : (locationJustSwitched
+          ? "⚠️ You just switched to Fixed mode — tap the button below now to actually save this as your home point."
+          : "Neighbours can find your garage near this fixed point, even while you're out.");
     actionBtn.textContent = missing ? '🏠 Set my home location' : '🏠 Update home location';
   } else {
     hint.textContent = missing
       ? "Your current location isn't set yet."
-      : "Your garage shows up wherever you last refreshed your location from.";
+      : (locationJustSwitched
+          ? "⚠️ You just switched to Live mode — tap the button below now to actually capture your current position."
+          : "Your garage shows up wherever you last refreshed your location from.");
     actionBtn.textContent = '📡 Refresh current location';
   }
+  hint.classList.toggle('needs-attention', locationJustSwitched);
+  actionBtn.classList.toggle('needs-attention', locationJustSwitched);
 };
 
 window.renderLiked = async function(){
