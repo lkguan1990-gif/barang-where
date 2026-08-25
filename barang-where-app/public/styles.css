@@ -447,8 +447,9 @@
   .pro-banner h3{font-family:'Anton',sans-serif; font-size:18px; margin:6px 0 4px; letter-spacing:0.01em;}
   .pro-banner p{font-size:12px; color:#c9c6b8; margin:0 0 12px; line-height:1.5;}
   .pro-badge{
-    font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:800; letter-spacing:0.04em;
-    background:var(--sunny); color:var(--ink); padding:3px 7px; border-radius:5px; margin-left:8px; vertical-align:middle;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:800; letter-spacing:0.05em;
+    background:var(--sunny); color:var(--ink); padding:6px 11px; border-radius:7px; margin-left:8px; vertical-align:middle;
+    border:2px solid var(--ink); box-shadow:0 2px 0 rgba(0,0,0,0.25);
   }
 
   /* ---------- Pricing cards (boost + pro) ---------- */
@@ -532,7 +533,7 @@
 .auth-msg.ok{color:var(--olive); font-weight:600;}
 .center-loader{display:flex; align-items:center; justify-content:center; min-height:100vh; font-family:'IBM Plex Mono',monospace; color:var(--ink-soft); font-size:13px;}
 .toast{
-  position:fixed; bottom:78px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--terrazzo);
+  position:fixed; top:calc(120px + env(safe-area-inset-top, 0px)); left:50%; transform:translateX(-50%); background:var(--ink); color:var(--terrazzo);
   padding:10px 16px; border-radius:10px; font-size:12.5px; font-weight:600; z-index:100; box-shadow:0 4px 0 rgba(0,0,0,0.3);
   max-width:88%; text-align:center;
 }

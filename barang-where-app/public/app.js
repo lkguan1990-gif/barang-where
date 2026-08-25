@@ -126,6 +126,36 @@ function mediaFill(item){
   }
   return CATEGORY_EMOJI[(item.categories||[])[0]] || "📦";
 }
+// Approximate centre coordinates for Singapore's 27 official HDB towns.
+// Used only to APPROXIMATE "which town am I near right now" for display
+// in Live location mode -- NOT used for any actual distance/matching
+// calculations (those always use precise lat/lng directly). Being off by
+// a town at a boundary is a cosmetic imprecision, not a functional bug.
+const TOWN_CENTERS = {
+  "Ang Mo Kio": [1.3691, 103.8454], "Bedok": [1.3236, 103.9273],
+  "Bishan": [1.3526, 103.8352], "Bukit Batok": [1.3590, 103.7637],
+  "Bukit Merah": [1.2819, 103.8239], "Bukit Panjang": [1.3774, 103.7719],
+  "Bukit Timah": [1.3294, 103.8021], "Central Area": [1.2903, 103.8520],
+  "Choa Chu Kang": [1.3840, 103.7470], "Clementi": [1.3151, 103.7649],
+  "Geylang": [1.3181, 103.8871], "Hougang": [1.3612, 103.8863],
+  "Jurong East": [1.3329, 103.7436], "Jurong West": [1.3404, 103.7090],
+  "Kallang/Whampoa": [1.3100, 103.8651], "Marine Parade": [1.3020, 103.9067],
+  "Pasir Ris": [1.3721, 103.9474], "Punggol": [1.4051, 103.9020],
+  "Queenstown": [1.2942, 103.7861], "Sembawang": [1.4491, 103.8185],
+  "Sengkang": [1.3868, 103.8914], "Serangoon": [1.3554, 103.8679],
+  "Tampines": [1.3496, 103.9568], "Tengah": [1.3722, 103.7069],
+  "Toa Payoh": [1.3343, 103.8563], "Woodlands": [1.4382, 103.7890],
+  "Yishun": [1.4304, 103.8354]
+};
+function nearestTown(lat, lng){
+  if (lat === null || lat === undefined) return null;
+  let best = null, bestDist = Infinity;
+  for (const [name, [tLat, tLng]] of Object.entries(TOWN_CENTERS)) {
+    const d = haversineMeters(lat, lng, tLat, tLng);
+    if (d < bestDist) { bestDist = d; best = name; }
+  }
+  return best;
+}
 function haversineMeters(lat1, lng1, lat2, lng2){
   if ([lat1,lng1,lat2,lng2].some(v => v === null || v === undefined)) return null;
   const R = 6371000;
@@ -343,10 +373,12 @@ window.loadNearby = async function(){
     distance: haversineMeters(myGarage.lat, myGarage.lng, g.lat, g.lng)
   }));
   const isLiveLocation = myGarage.location_mode === 'live';
-  const townName = myGarage.town || '—';
+  const townName = isLiveLocation
+    ? (nearestTown(myGarage.lat, myGarage.lng) || 'Unknown area')
+    : (myGarage.town || '—');
   document.getElementById('topbarSub').textContent = (isLiveLocation ? '📍 Live: ' : '📍 Home: ') + townName;
   document.getElementById('locationSummary').textContent = isLiveLocation
-    ? `Your garage location is currently ${townName}, moving with you since Live location is on.`
+    ? `Your garage location is currently near ${townName} (based on your live GPS position), moving with you since Live location is on.`
     : `Your garage location is set to ${townName}, based on your home location in Profile.`;
   renderGarageList();
 };
@@ -583,19 +615,16 @@ function garageCardHtml(g, query, matchingItems){
    GARAGE PAGE
 ========================================================= */
 window.openGarage = async function(id, carryoverQuery){
-  let g = nearbyGarages.find(x=>x.id===id);
-  if (!g) {
-    // Not in the current radius/session cache -- e.g. opened from Liked
-    // Garages while the garage is outside your current radius, or you're
-    // browsing away from home. Fetch it directly instead of giving up.
-    const { data, error } = await supabase.from('garages').select('*, items(*)').eq('id', id).maybeSingle();
-    if (error || !data) { toast('Could not load this garage.'); return; }
-    g = {
-      ...data,
-      items: (data.items || []).filter(it => !it.deleted_at),
-      distance: haversineMeters(myGarage.lat, myGarage.lng, data.lat, data.lng)
-    };
-  }
+  // Always fetch fresh -- the Nearby cache is a one-time snapshot, so an
+  // item's status (e.g. marked Sold by the seller after that snapshot)
+  // could otherwise still show as Available here.
+  const { data, error } = await supabase.from('garages').select('*, items(*)').eq('id', id).maybeSingle();
+  if (error || !data) { toast('Could not load this garage.'); return; }
+  const g = {
+    ...data,
+    items: (data.items || []).filter(it => !it.deleted_at),
+    distance: haversineMeters(myGarage.lat, myGarage.lng, data.lat, data.lng)
+  };
   currentGarageId = id;
   currentGarageItemsCache = g.items || [];
   const c = colorFor(id);
@@ -697,13 +726,24 @@ window.backFromItem = function(){
   else if (itemDetailFrom==='thread' && currentConversation) openThread(currentConversation.id);
   else show('nearby');
 };
-window.openItem = function(itemId, garageId, fromScreen){
+window.openItem = async function(itemId, garageId, fromScreen){
   itemDetailFrom = fromScreen || (garageId === 'mine' ? 'mygarage' : 'nearby');
   const g = garageId==='mine' ? {id:'mine', ...myGarage} : nearbyGarages.find(x=>x.id===garageId);
-  const item = garageId==='mine'
+  let item = garageId==='mine'
     ? myItems.find(i=>i.id===itemId)
     : (g?.items || []).find(i=>i.id===itemId);
   if (!item || !g) return;
+
+  // For someone else's item, refresh from the database -- the Nearby
+  // cache is a one-time snapshot, so a status change (e.g. the seller
+  // marking it Sold) after that snapshot would otherwise still show as
+  // Available here.
+  if (garageId !== 'mine') {
+    const { data: freshItem, error } = await supabase.from('items').select('*').eq('id', itemId).maybeSingle();
+    if (freshItem) item = freshItem;
+    else if (error) console.error('Could not refresh item status:', error);
+  }
+
   currentItemId = itemId;
   currentItemCache = item;
   currentGarageId = garageId;
