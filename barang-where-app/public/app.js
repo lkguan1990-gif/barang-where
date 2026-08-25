@@ -432,7 +432,7 @@ function renderHomeAddressStatus(){
     <div class="location-warning" style="cursor:default; margin-top:8px;">
       <div class="glyph">⚠️</div>
       <div class="txt">You've selected "${esc(myGarage.town)}" as your town, but that doesn't match your registered location above.
-        <span style="color:var(--zinc-blue); font-weight:700; cursor:pointer;" onclick="updateHomeAddress()">Update home address</span> if you've actually moved, or double-check the town field if not.</div>
+        If you've actually moved, tap "Update home address" below — otherwise, double-check the town field.</div>
     </div>` : ''}`;
 }
 function renderLocationWarning(){
