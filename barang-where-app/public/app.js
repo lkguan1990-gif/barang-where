@@ -398,13 +398,14 @@ window.loadNearby = async function(){
   const isLiveLocation = myGarage.location_mode === 'live';
   const garageTownName = myGarage.town || '—';
   const browseTownName = isLiveLocation ? (nearestTown(myGarage.browse_lat, myGarage.browse_lng) || 'Unknown area') : garageTownName;
-  if (isLiveLocation && browseTownName !== garageTownName) {
-    document.getElementById('topbarSub').textContent = `🏠 ${garageTownName} · 🛰️ ${browseTownName}`;
-    document.getElementById('locationSummary').textContent = 'Garage stays put — only your search view moved.';
-  } else {
-    document.getElementById('topbarSub').textContent = `🏠 ${garageTownName}`;
-    document.getElementById('locationSummary').textContent = '';
-  }
+  const browsingElsewhere = isLiveLocation && browseTownName !== garageTownName;
+
+  document.getElementById('topbarSub').textContent = browsingElsewhere
+    ? `${garageTownName} · browsing from ${browseTownName}`
+    : garageTownName;
+  document.getElementById('locationSummary').textContent = browsingElsewhere
+    ? `Your garage at ${garageTownName}, you are browsing from ${browseTownName} now.`
+    : 'You are browsing from your home location.';
   renderGarageList();
 };
 window.toggleGarageDetailsForm = function(){
