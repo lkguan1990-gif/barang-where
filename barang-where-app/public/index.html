@@ -272,53 +272,61 @@
         <div class="profile-row"><span>My Garage</span><span class="r" onclick="show('mygarage')" style="cursor:pointer;">Manage →</span></div>
         <div class="profile-row"><span>Liked items</span><span class="r" onclick="show('liked')" style="cursor:pointer;">View →</span></div>
         <div class="profile-row" style="flex-direction:column; align-items:stretch; gap:10px;">
-          <span style="font-weight:700;">Garage details</span>
-          <div class="field" style="margin-top:0;">
-            <label>Your name</label>
-            <input type="text" id="editGarageName" maxlength="40">
+          <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleGarageDetailsForm()">
+            <div>
+              <span style="font-weight:700;">Garage details</span>
+              <div style="font-size:12px; color:var(--ink-soft); margin-top:2px;" id="garageDetailsSummary"></div>
+            </div>
+            <span id="garageDetailsChevron" style="font-size:18px;">▸</span>
           </div>
-          <div class="field">
-            <label>Block number / apartment number</label>
-            <input type="text" id="editGarageBlock" maxlength="15">
+          <div id="garageDetailsForm" style="display:none; flex-direction:column; gap:10px;">
+            <div class="field" style="margin-top:0;">
+              <label>Your name</label>
+              <input type="text" id="editGarageName" maxlength="40">
+            </div>
+            <div class="field">
+              <label>Block number / apartment number</label>
+              <input type="text" id="editGarageBlock" maxlength="15">
+            </div>
+            <div class="field">
+              <label>Town / estate</label>
+              <select id="editGarageTown">
+                <option>Ang Mo Kio</option>
+                <option>Bedok</option>
+                <option>Bishan</option>
+                <option>Bukit Batok</option>
+                <option>Bukit Merah</option>
+                <option>Bukit Panjang</option>
+                <option>Bukit Timah</option>
+                <option>Central Area</option>
+                <option>Choa Chu Kang</option>
+                <option>Clementi</option>
+                <option>Geylang</option>
+                <option>Hougang</option>
+                <option>Jurong East</option>
+                <option>Jurong West</option>
+                <option>Kallang/Whampoa</option>
+                <option>Marine Parade</option>
+                <option>Pasir Ris</option>
+                <option>Punggol</option>
+                <option>Queenstown</option>
+                <option>Sembawang</option>
+                <option>Sengkang</option>
+                <option>Serangoon</option>
+                <option>Tampines</option>
+                <option>Tengah</option>
+                <option>Toa Payoh</option>
+                <option>Woodlands</option>
+                <option>Yishun</option>
+              </select>
+            </div>
+            <div class="field" style="margin-top:0;">
+              <label>Neighbourhood <span style="text-transform:none; font-weight:500;">— optional, e.g. "Khatib"</span></label>
+              <input type="text" id="editGarageNeighbourhood" placeholder="e.g. Khatib" maxlength="40">
+            </div>
+            <button class="btn small" style="align-self:flex-start;" onclick="saveGarageDetails()">Save changes</button>
+            <div class="auth-msg" id="editGarageMsg"></div>
           </div>
-          <div class="field">
-            <label>Town / estate</label>
-            <select id="editGarageTown">
-              <option>Ang Mo Kio</option>
-              <option>Bedok</option>
-              <option>Bishan</option>
-              <option>Bukit Batok</option>
-              <option>Bukit Merah</option>
-              <option>Bukit Panjang</option>
-              <option>Bukit Timah</option>
-              <option>Central Area</option>
-              <option>Choa Chu Kang</option>
-              <option>Clementi</option>
-              <option>Geylang</option>
-              <option>Hougang</option>
-              <option>Jurong East</option>
-              <option>Jurong West</option>
-              <option>Kallang/Whampoa</option>
-              <option>Marine Parade</option>
-              <option>Pasir Ris</option>
-              <option>Punggol</option>
-              <option>Queenstown</option>
-              <option>Sembawang</option>
-              <option>Sengkang</option>
-              <option>Serangoon</option>
-              <option>Tampines</option>
-              <option>Tengah</option>
-              <option>Toa Payoh</option>
-              <option>Woodlands</option>
-              <option>Yishun</option>
-            </select>
-          </div>
-          <div class="field" style="margin-top:0;">
-            <label>Neighbourhood <span style="text-transform:none; font-weight:500;">— optional, e.g. "Khatib"</span></label>
-            <input type="text" id="editGarageNeighbourhood" placeholder="e.g. Khatib" maxlength="40">
-          </div>
-          <button class="btn small" style="align-self:flex-start;" onclick="saveGarageDetails()">Save changes</button>
-          <div class="auth-msg" id="editGarageMsg"></div>
           <div id="homeAddressStatusSlot" style="margin-top:6px;"></div>
           <button class="btn small ghost" style="align-self:flex-start; margin-top:4px;" onclick="updateHomeAddress()">🏠 Update home address</button>
         </div>

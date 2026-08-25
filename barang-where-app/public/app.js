@@ -397,17 +397,22 @@ window.loadNearby = async function(){
   }));
   const isLiveLocation = myGarage.location_mode === 'live';
   const garageTownName = myGarage.town || '—';
-  if (isLiveLocation) {
-    const browseTownName = nearestTown(myGarage.browse_lat, myGarage.browse_lng) || 'Unknown area';
-    document.getElementById('topbarSub').textContent = `📍 Garage: ${garageTownName} · 🛰️ Browsing from: ${browseTownName}`;
-    document.getElementById('locationSummary').textContent =
-      `Your garage stays listed at ${garageTownName}. You're currently browsing as if you were near ${browseTownName}, since Live location is on — this doesn't move your garage.`;
+  const browseTownName = isLiveLocation ? (nearestTown(myGarage.browse_lat, myGarage.browse_lng) || 'Unknown area') : garageTownName;
+  if (isLiveLocation && browseTownName !== garageTownName) {
+    document.getElementById('topbarSub').textContent = `🏠 ${garageTownName} · 🛰️ ${browseTownName}`;
+    document.getElementById('locationSummary').textContent = 'Garage stays put — only your search view moved.';
   } else {
-    document.getElementById('topbarSub').textContent = `📍 Garage: ${garageTownName}`;
-    document.getElementById('locationSummary').textContent =
-      `Your garage is listed at ${garageTownName}, and you're browsing from the same place.`;
+    document.getElementById('topbarSub').textContent = `🏠 ${garageTownName}`;
+    document.getElementById('locationSummary').textContent = '';
   }
   renderGarageList();
+};
+window.toggleGarageDetailsForm = function(){
+  const form = document.getElementById('garageDetailsForm');
+  const chevron = document.getElementById('garageDetailsChevron');
+  const isOpen = form.style.display !== 'none';
+  form.style.display = isOpen ? 'none' : 'flex';
+  chevron.textContent = isOpen ? '▸' : '▾';
 };
 function renderHomeAddressStatus(){
   const slot = document.getElementById('homeAddressStatusSlot');
@@ -1657,6 +1662,7 @@ window.renderProfile = function(){
   document.getElementById('profileName').textContent = myGarage.display_name;
   document.getElementById('profileAddr').textContent = `Blk ${myGarage.block}, ${myGarage.town}${myGarage.neighbourhood ? ' ('+myGarage.neighbourhood+')' : ''}`;
 
+  document.getElementById('garageDetailsSummary').textContent = `${myGarage.display_name || '—'} · Blk ${myGarage.block || '—'}, ${myGarage.town || '—'}`;
   document.getElementById('editGarageName').value = myGarage.display_name || '';
   document.getElementById('editGarageBlock').value = myGarage.block || '';
   document.getElementById('editGarageTown').value = myGarage.town || 'Sengkang';
