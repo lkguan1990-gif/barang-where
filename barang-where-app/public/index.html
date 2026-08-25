@@ -94,7 +94,7 @@
         <input type="text" id="obNeighbourhood" placeholder="e.g. Khatib" maxlength="40">
       </div>
       <div class="field-hint" id="obLocStatus">We'll ask your browser for your location next, so neighbours can be sorted by distance. We only ever show your block — never your exact address.</div>
-      <button class="btn block red" style="margin-top:16px;" onclick="finishOnboarding()">Set up my garage</button>
+      <button class="btn block red" id="obSubmitBtn" data-confirm-label="Confirm & finish" style="margin-top:16px;" onclick="finishOnboarding()">Set up my garage</button>
       <div class="auth-msg" id="obMsg"></div>
     </div>
   </div>
@@ -319,7 +319,7 @@
           </div>
           <button class="btn small" style="align-self:flex-start;" onclick="saveGarageDetails()">Save changes</button>
           <div class="auth-msg" id="editGarageMsg"></div>
-          <div class="field-hint" style="margin-top:6px;">Your garage's home address is separate from browsing below — it only changes if you actually move house.</div>
+          <div id="homeAddressStatusSlot" style="margin-top:6px;"></div>
           <button class="btn small ghost" style="align-self:flex-start; margin-top:4px;" onclick="updateHomeAddress()">🏠 Update home address (only if you've moved)</button>
         </div>
         <div class="profile-row" id="locationRow" style="flex-direction:column; align-items:stretch; gap:10px;">

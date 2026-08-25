@@ -48,6 +48,7 @@ let currentItemId = null;
 let currentItemCache = null;  // last-opened item detail, so we don't need a refetch for send/save
 let currentGarageId = null;
 let locationJustSwitched = false; // true right after switching Fixed/Live until the location is actually captured for it
+let onboardingLocationCaptured = null; // null = not tried yet, false = denied/failed, {lat,lng} = captured
 let currentGarageItemsCache = [];
 let garageStatusFilter = 'All';
 let myGarageStatusFilter = 'All';
@@ -257,21 +258,42 @@ window.verifyOtpCode = async function(){
 window.finishOnboarding = async function(){
   const display_name = document.getElementById('obName').value.trim();
   const block = document.getElementById('obBlock').value.trim();
-  const town = document.getElementById('obTown').value.trim() || (cfg.DEFAULT_TOWN || 'Sengkang');
+  const townSelect = document.getElementById('obTown');
   const neighbourhood = document.getElementById('obNeighbourhood').value.trim();
   const msg = document.getElementById('obMsg');
+  const submitBtn = document.getElementById('obSubmitBtn');
   if (!display_name || !block) { msg.className='auth-msg error'; msg.textContent='Name and block are both required.'; return; }
 
-  document.getElementById('obLocStatus').textContent = 'Requesting your location…';
-  let lat = null, lng = null;
-  try {
-    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout:8000}));
-    // Round to ~3 decimals (~110m) so we never store a precise doorstep location.
-    lat = Math.round(pos.coords.latitude * 1000) / 1000;
-    lng = Math.round(pos.coords.longitude * 1000) / 1000;
-  } catch (e) {
-    document.getElementById('obLocStatus').textContent = 'Location unavailable — you can still list items, but distance sorting needs it. You can allow location later by refreshing.';
+  // First pass: detect location and suggest a matching town, so the two
+  // never start out mismatched with each other. Wait for the user to
+  // review/correct it before actually submitting.
+  if (onboardingLocationCaptured === null) {
+    document.getElementById('obLocStatus').textContent = 'Requesting your location…';
+    try {
+      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout:8000}));
+      const lat = Math.round(pos.coords.latitude * 1000) / 1000;
+      const lng = Math.round(pos.coords.longitude * 1000) / 1000;
+      onboardingLocationCaptured = { lat, lng };
+      const detected = nearestTown(lat, lng);
+      if (detected) {
+        townSelect.value = detected;
+        document.getElementById('obLocStatus').textContent = `📍 We've set your town to ${detected} based on your location — check it's right, then tap "${submitBtn.dataset.confirmLabel}" to finish.`;
+      } else {
+        document.getElementById('obLocStatus').textContent = `📍 Got your location. Please confirm your town below, then tap "${submitBtn.dataset.confirmLabel}" to finish.`;
+      }
+    } catch (e) {
+      onboardingLocationCaptured = false;
+      document.getElementById('obLocStatus').textContent = `Location unavailable — you can still list items, but distance sorting needs it (you can allow it later in Profile). Tap "${submitBtn.dataset.confirmLabel}" to finish without it.`;
+    }
+    submitBtn.textContent = submitBtn.dataset.confirmLabel;
+    return;
   }
+
+  // Second pass: actually submit, using whatever town is now selected --
+  // either the GPS-detected suggestion, or the user's own correction.
+  const town = townSelect.value.trim() || (cfg.DEFAULT_TOWN || 'Sengkang');
+  const lat = onboardingLocationCaptured ? onboardingLocationCaptured.lat : null;
+  const lng = onboardingLocationCaptured ? onboardingLocationCaptured.lng : null;
 
   const { error } = await supabase.from('garages').insert({
     id: session.user.id, display_name, block, town, neighbourhood,
@@ -387,6 +409,29 @@ window.loadNearby = async function(){
   }
   renderGarageList();
 };
+function renderHomeAddressStatus(){
+  const slot = document.getElementById('homeAddressStatusSlot');
+  if (!slot) return;
+  if (myGarage.home_lat === null || myGarage.home_lat === undefined) {
+    slot.innerHTML = `<div class="field-hint">Your garage's home address isn't set yet — tap "Update home address" below to set it.</div>`;
+    return;
+  }
+  const mapUrl = `https://www.google.com/maps?q=${myGarage.home_lat},${myGarage.home_lng}`;
+  const detected = nearestTown(myGarage.home_lat, myGarage.home_lng);
+  const mismatch = detected && detected !== myGarage.town;
+  slot.innerHTML = `
+    <div class="field-hint">
+      Your registered home location is near <b>${esc(detected || 'an unknown area')}</b> —
+      <a href="${mapUrl}" target="_blank" rel="noopener" style="color:var(--zinc-blue); font-weight:700;">view on map</a>
+      to check it's right. It only changes if you tap "Update home address" below.
+    </div>
+    ${mismatch ? `
+    <div class="location-warning" style="cursor:default; margin-top:8px;">
+      <div class="glyph">⚠️</div>
+      <div class="txt">You've selected "${esc(myGarage.town)}" as your town, but that doesn't match your registered location above.
+        <span style="color:var(--zinc-blue); font-weight:700; cursor:pointer;" onclick="updateHomeAddress()">Update home address</span> if you've actually moved, or double-check the town field if not.</div>
+    </div>` : ''}`;
+}
 function renderLocationWarning(){
   const slot = document.getElementById('locationWarningSlot');
   if (!slot) return;
@@ -1617,6 +1662,7 @@ window.renderProfile = function(){
   document.getElementById('editGarageTown').value = myGarage.town || 'Sengkang';
   document.getElementById('editGarageNeighbourhood').value = myGarage.neighbourhood || '';
   document.getElementById('editGarageMsg').textContent = '';
+  renderHomeAddressStatus();
 
   const mode = myGarage.location_mode || 'fixed';
   const browseMissing = myGarage.browse_lat === null || myGarage.browse_lat === undefined;

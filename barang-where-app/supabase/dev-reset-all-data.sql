@@ -1,0 +1,32 @@
+-- ============================================================
+-- DEV RESET — wipe all app data, keep your login accounts intact
+-- Run this in the Supabase SQL Editor. Safe for test data only —
+-- this is irreversible, so don't run it against real user data later.
+--
+-- WHY JUST ONE TABLE IS ENOUGH:
+-- Every other table cascades from garages, either directly or
+-- transitively (items → conversations → messages, items → reports,
+-- items → saved_items, garages → saved_garages), thanks to the
+-- "on delete cascade" foreign keys already set up in schema.sql.
+-- Deleting garages alone correctly empties everything else with it.
+--
+-- WHY YOUR LOGIN STILL WORKS AFTER THIS:
+-- garages.id references auth.users(id), not the other way around --
+-- so this only deletes the app-data side. Your account, email, and
+-- ability to sign in are completely unaffected. On your next sign-in,
+-- the app will find no matching garage row and take you straight to
+-- the onboarding screen, exactly as if you were a brand new user.
+-- ============================================================
+
+delete from public.garages;
+
+-- ============================================================
+-- ONE MORE STEP THIS SQL CAN'T DO: uploaded photos
+-- Deleting the database rows above does NOT delete the actual photo
+-- files sitting in Storage -- they'd become orphaned, still taking up
+-- space with nothing pointing to them. Clear those separately:
+--   Supabase Dashboard → Storage → item-photos bucket →
+--   select all files → Delete
+-- (Doing this via the Dashboard, not raw SQL, ensures the actual files
+-- are removed, not just their database records.)
+-- ============================================================
