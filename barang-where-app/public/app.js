@@ -401,8 +401,8 @@ window.loadNearby = async function(){
   const browsingElsewhere = isLiveLocation && browseTownName !== garageTownName;
 
   document.getElementById('topbarSub').textContent = browsingElsewhere
-    ? `${garageTownName} · browsing from ${browseTownName}`
-    : `${garageTownName} · browsing from your home`;
+    ? `Garage at ${garageTownName} · browsing from ${browseTownName} ›`
+    : `Garage at ${garageTownName} · browsing from your home ›`;
   renderGarageList();
 };
 window.toggleGarageDetailsForm = function(){
